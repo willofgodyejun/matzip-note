@@ -35,8 +35,15 @@ header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-be
 
 .criteria{display:flex;flex-wrap:wrap;gap:6px;font-size:13px;align-items:center}
 .criteria span{border:1px solid var(--line);border-radius:4px;padding:2px 9px;color:var(--muted);background:var(--surface)}
-.criteria span b{color:var(--ink);font-weight:400}
 .criteria .head{border:0;background:none;padding-left:0;color:var(--ink);font-weight:700}
+.criteria .fixed{color:var(--ink)}
+.crit{font:inherit;font-size:13px;display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--line);border-radius:4px;padding:2px 9px;background:var(--surface);color:var(--muted);cursor:pointer;text-decoration:line-through;text-decoration-color:var(--muted)}
+.crit::before{content:"";width:9px;height:9px;border-radius:2px;border:1.5px solid var(--muted)}
+.crit[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);text-decoration:none}
+.crit[aria-pressed="true"]::before{background:var(--ink);border-color:var(--ink)}
+.crit:hover{border-color:var(--ink)}
+.crit:focus-visible{outline:2px solid var(--chili);outline-offset:2px}
+.criteria .tip{border:0;background:none;padding:0;font-size:12px}
 
 .seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:6px;overflow:hidden}
 .seg button{font:inherit;font-size:15px;border:0;background:var(--surface);color:var(--ink);padding:6px 14px;cursor:pointer}
@@ -117,6 +124,19 @@ input[type=search],select,textarea{font:inherit;font-size:15px;background:var(--
 .stars .clear{font-size:12px;color:var(--muted);margin-left:6px;text-decoration:underline}
 .memo{width:100%;min-height:0;resize:vertical;font-size:14px;padding:6px 10px}
 .memo-view{margin:0;font-size:15px}
+.state{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:14px}
+.open{font-size:13px;padding:1px 8px;border-radius:4px;font-weight:700}
+.open.yes{background:var(--good-soft);color:var(--good)}
+.open.brk{background:var(--mustard-soft);color:var(--ink)}
+.open.no{background:var(--bg);color:var(--muted)}
+.hrs{font-size:13px;color:var(--muted)}
+details.hours summary{cursor:pointer;font-size:14px;color:var(--muted)}
+details.hours form{display:grid;grid-template-columns:auto 1fr;gap:8px 10px;align-items:center;margin-top:8px;font-size:14px}
+details.hours label{color:var(--muted)}
+details.hours input[type=text]{font:inherit;font-size:14px;min-width:0;background:var(--surface);color:var(--ink);border:1.5px solid var(--line);border-radius:6px;padding:5px 10px}
+details.hours .days{display:flex;flex-wrap:wrap;gap:4px}
+details.hours .days label{display:flex;align-items:center;gap:2px;color:var(--ink)}
+details.hours .acts{grid-column:1/-1;display:flex;gap:8px}
 .links{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-top:auto}
 .links button,.links a{font:inherit;background:none;border:0;padding:0;color:var(--chili);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
 .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:28px 16px;border:1.5px dashed var(--line);border-radius:6px}
@@ -174,8 +194,7 @@ input[type=search],select,textarea{font:inherit;font-size:15px;background:var(--
         <option value="my">내 별점 순</option>
         <option value="name">이름순</option>
       </select>
-      <label class="check"><input type="checkbox" id="mineOnly"> 내 맛집만</label>
-      <label class="check"><input type="checkbox" id="showChain"> 체인점 포함</label>
+      <label class="check"><input type="checkbox" id="openOnly"> 지금 영업 중만</label>
     </div>
     <div class="count" id="count"></div>
   </section>
@@ -183,7 +202,7 @@ input[type=search],select,textarea{font:inherit;font-size:15px;background:var(--
   <section class="grid" id="grid" aria-live="polite"></section>
 
   <div class="backup">
-    <span>내 별점과 메모는 이 브라우저에만 저장돼요.</span>
+    <span>내 별점, 메모, 영업시간은 이 브라우저에만 저장돼요.</span>
     <button class="btn small" type="button" id="exportBtn">내 평가 내보내기</button>
     <label class="btn small" for="importFile" style="cursor:pointer">가져오기</label>
     <input type="file" id="importFile" accept="application/json,.json" hidden>
@@ -200,10 +219,12 @@ const CRITERIA = {
   needRoadAddr: true,     // 도로명 주소가 등록된 곳만
   mineMin: 4              // 직접 가서 이 별점 이상을 준 곳 = '내 맛집'
 };
-const RADII = [500, 1000, 3000];
+const RADII = [500, 1000, 3000, 5000];
 const MAX_PAGES = 3;              // 카카오 API는 한 번에 최대 45곳(15곳 × 3쪽)
 const WALK_M_PER_MIN = 80;        // 도보 시간 (직선거리 기준이라 실제보다 짧을 수 있음)
 const QUICK = ["홍대입구역","강남역","성수역","여의도역","광화문역"];
+const FIXED_CATS = ["한식","중식","일식","양식","카페"];   // 결과가 없어도 항상 보이는 종류
+const DAYS = ["일","월","화","수","목","금","토"];
 const NOT_BRANCH = new Set(["반점","주점","본점","맛점","정점"]);
 
 const keyMissing = k=>!k || /^YOUR_/.test(k);
@@ -221,6 +242,20 @@ try{ MY = JSON.parse(localStorage.getItem("matjip-my")||"{}")||{}; }catch(e){ MY
 const saveMy = ()=>{ try{ localStorage.setItem("matjip-my", JSON.stringify(MY)); }catch(e){} };
 const myOf = id=>MY[id]||null;
 const isMine = p=>(myOf(p.id)?.stars||0)>=CRITERIA.mineMin;
+
+/* ===== 영업시간 (카카오 API에 없어 직접 입력) ===== */
+const TIME_RE=/^\s*(\d{1,2}):(\d{2})\s*[-–~]\s*(\d{1,2}):(\d{2})\s*$/;
+function span(str){ const m=str.match(TIME_RE); const a=+m[1]*60+ +m[2], b=+m[3]*60+ +m[4]; return [a, b<=a?b+1440:b]; }
+const inSpan=(now,[a,b])=>(now>=a&&now<b)||(now+1440>=a&&now+1440<b);
+const normTime=str=>{ const m=str.match(TIME_RE); return m?`${m[1].padStart(2,"0")}:${m[2]}–${m[3].padStart(2,"0")}:${m[4]}`:null; };
+function openState(p, at=new Date()){
+  const h=myOf(p.id)?.hours; if(!h?.open) return null;
+  const now=at.getHours()*60+at.getMinutes();
+  if((h.off||[]).includes(at.getDay())) return {key:"no",label:`오늘 휴무 (${DAYS[at.getDay()]})`};
+  if(!inSpan(now,span(h.open))) return {key:"no",label:"영업 종료"};
+  if(h.brk&&inSpan(now,span(h.brk))) return {key:"brk",label:`브레이크 ~${h.brk.split("–")[1]}`};
+  return {key:"yes",label:"영업 중"};
+}
 
 /* ===== 카카오 결과 → 가게 ===== */
 function branchOf(name){
@@ -241,17 +276,19 @@ function toPlace(r){
 }
 function failures(p){
   const f=[];
-  if(CRITERIA.needPhone&&!p.phone) f.push("전화번호 없음");
-  if(CRITERIA.needRoadAddr&&!p.road) f.push("도로명 주소 없음");
+  if(state.crit.phone&&!p.phone) f.push("전화번호 없음");
+  if(state.crit.road&&!p.road) f.push("도로명 주소 없음");
   return f;
 }
 const passes = p=>failures(p).length===0;
 
 /* ===== 상태 ===== */
 const state = {places:[], loading:false, error:"", center:null, centerName:"", radius:1000,
-  cat:"전체", q:"", sort:"dist", mineOnly:false, showChain:!CRITERIA.excludeChain, selected:null,
+  cat:"전체", q:"", sort:"dist", openOnly:false, catPlaces:{}, selected:null,
+  crit:{chain:CRITERIA.excludeChain, phone:CRITERIA.needPhone, road:CRITERIA.needRoadAddr, mine:false},
   provider:null, view:"list"};
 try{
+  const c=JSON.parse(localStorage.getItem("matjip-crit")||"null"); if(c) for(const k in state.crit) if(typeof c[k]==="boolean") state.crit[k]=c[k];
   const r=+localStorage.getItem("matjip-radius"); if(RADII.includes(r)) state.radius=r;
   const p=localStorage.getItem("matjip-provider"); if(HAS_KEY[p]) state.provider=p;
 }catch(e){}
@@ -278,6 +315,7 @@ function ensureKakao(){
 let searchSeq=0;
 async function loadPlaces(){
   if(!state.center) return;
+  state.catPlaces={};
   const seq=++searchSeq;
   state.loading=true; state.error=""; render();
   try{
@@ -300,15 +338,45 @@ async function loadPlaces(){
     state.places=[];
     state.error = HAS_KEY.kakao ? "카카오 장소 정보를 불러오지 못했어요. 네트워크와 키 설정을 확인해 주세요." : "카카오 JavaScript 키가 없어 음식점 정보를 불러올 수 없어요.";
   }
-  if(seq===searchSeq){ state.loading=false; if(state.cat!=="전체"&&!state.places.some(p=>p.top===state.cat)) state.cat="전체"; render(); }
+  if(seq===searchSeq){ state.loading=false; render(); if(state.cat!=="전체") loadCat(state.cat); }
+}
+/* 종류를 고르면 그 종류만 따로 검색 (전체 45곳 제한에 묻힌 가게까지) */
+const CAFE_CODE = "CE7";   // 카카오에서 카페는 음식점(FD6)과 다른 카테고리
+async function loadCat(cat){
+  if(!state.center||state.catPlaces[cat]) return;
+  if(cat!=="카페"&&!state.capped) return;
+  const seq=searchSeq; state.catPlaces[cat]="loading"; render();
+  try{
+    const {places}=await ensureKakao(); const S=kakao.maps.services; const all=[];
+    const opts={location:new kakao.maps.LatLng(state.center.lat,state.center.lng), radius:state.radius, sort:S.SortBy.DISTANCE};
+    await new Promise(done=>{
+      const cb=(data,status,pg)=>{
+        if(seq!==searchSeq) return done();
+        if(status===S.Status.OK){ all.push(...data); if(pg.hasNextPage&&pg.current<MAX_PAGES) return pg.nextPage(); }
+        done();
+      };
+      if(cat==="카페") places.categorySearch(CAFE_CODE,cb,opts);
+      else places.keywordSearch(cat,cb,{...opts, category_group_code:CRITERIA.category});
+    });
+    if(seq!==searchSeq) return;
+    state.catPlaces[cat]=all.map(toPlace).map(p=>cat==="카페"?{...p, top:"카페", detail:p.detail||""}:p).filter(p=>p.top===cat);
+  }catch(e){ state.catPlaces[cat]=[]; }
+  render();
+}
+function pool(){
+  const extra=Array.isArray(state.catPlaces[state.cat])?state.catPlaces[state.cat]:[];
+  if(!extra.length) return state.places;
+  const seen=new Set(state.places.map(p=>p.id));
+  return [...state.places, ...extra.filter(p=>!seen.has(p.id))];
 }
 
 /* ===== 목록 ===== */
 function visible(){
   const q=state.q.toLowerCase();
-  return state.places.filter(p=>passes(p)
-    &&(state.showChain||!p.branch)
-    &&(!state.mineOnly||isMine(p))
+  return pool().filter(p=>passes(p)
+    &&(!state.crit.chain||!p.branch)
+    &&(!state.crit.mine||isMine(p))
+    &&(!state.openOnly||openState(p)?.key==="yes")
     &&(state.cat==="전체"||p.top===state.cat)
     &&(!q||[p.name,p.top,p.detail].join(" ").toLowerCase().includes(q)));
 }
@@ -326,6 +394,22 @@ function starsHtml(p){
     `<button type="button" class="${n<=s?"on":""}" data-star="${n}" data-id="${esc(p.id)}" aria-label="${n}점" aria-pressed="${n===s}">★</button>`).join("")}
     ${s?`<button type="button" class="clear" data-clear="${esc(p.id)}">지우기</button>`:""}</div>`;
 }
+function stateRow(p){
+  const o=openState(p), h=myOf(p.id)?.hours;
+  if(!o) return "";
+  const off=h.off?.length?` · ${h.off.map(i=>DAYS[i]).join("·")} 휴무`:"";
+  return `<div class="state"><span class="open ${o.key}">${esc(o.label)}</span><span class="hrs">${esc(h.open)}${h.brk?` · 브레이크 ${esc(h.brk)}`:""}${off}</span></div>`;
+}
+function hoursForm(p){
+  const h=myOf(p.id)?.hours||{}; const id=esc(p.id);
+  return `<details class="hours"><summary>${h.open?"영업시간 수정":"영업시간 입력"}</summary>
+    <form data-hours="${id}">
+      <label for="ho-${id}">영업</label><input type="text" id="ho-${id}" name="open" value="${esc(h.open||"")}" placeholder="11:00-21:00" inputmode="numeric">
+      <label for="hb-${id}">브레이크</label><input type="text" id="hb-${id}" name="brk" value="${esc(h.brk||"")}" placeholder="없으면 비워 두기 (예: 15:00-17:00)" inputmode="numeric">
+      <span class="lbl" style="color:var(--muted)">휴무</span><div class="days">${DAYS.map((d,i)=>`<label><input type="checkbox" name="off" value="${i}"${(h.off||[]).includes(i)?" checked":""}>${d}</label>`).join("")}</div>
+      <div class="acts"><button class="btn small primary" type="submit">저장</button>${h.open?`<button class="btn small" type="button" data-hclear="${id}">지우기</button>`:""}</div>
+    </form></details>`;
+}
 function card(p){
   const my=myOf(p.id);
   const nUrl="https://map.naver.com/p/search/"+encodeURIComponent(p.name);
@@ -337,9 +421,11 @@ function card(p){
   return `<article class="card${state.selected===p.id?" on":""}${isMine(p)?" mine":""}" id="k-${esc(p.id)}" data-id="${esc(p.id)}">
     <div class="top"><div><h3>${esc(p.name)}</h3><div class="cat">${esc(p.top)}${p.detail?" · "+esc(p.detail):""}</div></div>
     ${p.dist!=null?`<span class="walk">도보 약 ${walkMin(p.dist)}분<br>${fmtDist(p.dist)}</span>`:""}</div>
+    ${stateRow(p)}
     ${badges?`<div class="badges">${badges}</div>`:""}
     <dl class="info"><dt>주소</dt><dd>${esc(p.road||p.addr)}</dd><dt>전화</dt><dd class="mono">${esc(p.phone)}</dd></dl>
     <div class="my">${starsHtml(p)}
+      ${hoursForm(p)}
       ${my?.stars?`<textarea class="memo" rows="2" data-memo="${esc(p.id)}" placeholder="한 줄 메모 (예: 순대국 특, 점심 웨이팅 10분)" aria-label="${esc(p.name)} 메모">${esc(my.memo||"")}</textarea>`:""}</div>
     <div class="links"><a href="${esc(p.url)}" target="_blank" rel="noopener">카카오맵 상세</a><a href="${nUrl}" target="_blank" rel="noopener">네이버 지도</a><button type="button" data-focus="${esc(p.id)}">지도에서 보기</button><button type="button" data-copy="${esc(p.url)}">링크 복사</button></div>
   </article>`;
@@ -353,14 +439,26 @@ function render(){
   document.querySelectorAll("#radiusSeg button").forEach(b=>b.setAttribute("aria-pressed", +b.dataset.r===state.radius));
 
   // 종류 칩: 불러온 결과에서 만들기
-  const base=state.places.filter(p=>passes(p)&&(state.showChain||!p.branch)&&(!state.mineOnly||isMine(p)));
+  const keep=p=>passes(p)&&(!state.crit.chain||!p.branch)&&(!state.crit.mine||isMine(p))&&(!state.openOnly||openState(p)?.key==="yes");
+  const base=state.places.filter(keep);
   const counts={}; base.forEach(p=>counts[p.top]=(counts[p.top]||0)+1);
-  const cats=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
-  $("catRow").innerHTML='<span class="lbl">종류</span>'+["전체",...cats].map(c=>
-    `<button type="button" class="chip" data-cat="${esc(c)}" aria-pressed="${c===state.cat}">${esc(c)}<small>${c==="전체"?base.length:counts[c]}</small></button>`).join("");
+  for(const [c,arr] of Object.entries(state.catPlaces)) if(Array.isArray(arr)){
+    const ids=new Set(base.filter(p=>p.top===c).map(p=>p.id)); counts[c]=(counts[c]||0)+arr.filter(p=>keep(p)&&!ids.has(p.id)).length; }
+  const others=Object.keys(counts).filter(c=>!FIXED_CATS.includes(c)).sort((a,b)=>counts[b]-counts[a]);
+  const showN=c=>!state.center||state.loading?"":c==="전체"?base.length:state.catPlaces[c]==="loading"?"…":(c==="카페"&&!state.catPlaces[c])?"":(counts[c]||0);
+  $("catRow").innerHTML='<span class="lbl">종류</span>'+["전체",...FIXED_CATS,...others].map(c=>
+    `<button type="button" class="chip" data-cat="${esc(c)}" aria-pressed="${c===state.cat}">${esc(c)}<small>${showN(c)}</small></button>`).join("");
 
   const list=sortList(visible());
   const total=state.places.length, chainN=state.places.filter(p=>passes(p)&&p.branch).length, failN=state.places.filter(p=>!passes(p)).length;
+  const C=state.crit;
+  $("criteria").innerHTML =
+    `<span class="head">고르는 기준</span><span class="fixed">카카오맵 음식점·카페</span>`
+    + `<button type="button" class="crit" data-crit="chain" aria-pressed="${C.chain}">체인점 제외</button>`
+    + `<button type="button" class="crit" data-crit="phone" aria-pressed="${C.phone}">전화번호 등록된 곳만</button>`
+    + `<button type="button" class="crit" data-crit="road" aria-pressed="${C.road}">도로명 주소 등록된 곳만</button>`
+    + `<button type="button" class="crit" data-crit="mine" aria-pressed="${C.mine}">내 맛집만 (직접 가서 ★${CRITERIA.mineMin} 이상)</button>`
+    + `<span class="tip hint">눌러서 켜고 끌 수 있어요</span>`;
   if(!state.center){
     $("count").textContent="";
     $("grid").innerHTML=`<div class="empty"><b>위치를 정하면 주변 음식점을 불러와요.</b><br>주소를 검색하거나, 지도를 클릭하거나, 위의 바로 가기를 눌러 보세요.</div>`;
@@ -372,9 +470,10 @@ function render(){
     $("grid").innerHTML=`<div class="empty"><b>${esc(state.error)}</b></div>`;
   }else{
     $("count").textContent=`카카오맵 음식점 ${total}곳${state.capped?"(가까운 순 최대치)":""} 중 ${list.length}곳 표시`
-      +` · 체인점 ${chainN}곳${state.showChain?" 포함":" 숨김"} · 정보 미등록 ${failN}곳 제외`;
+      +(C.chain?` · 체인점 ${chainN}곳 숨김`:"")+(failN?` · 정보 미등록 ${failN}곳 제외`:"")
+      +(state.openOnly?" · 영업시간을 입력한 곳만 판단해요":"");
     $("grid").innerHTML=list.length?list.map(card).join(""):
-      `<div class="empty"><b>조건에 맞는 가게가 없어요.</b><br>${state.mineOnly?"'내 맛집만'을 끄거나 ":""}반경을 넓히거나 종류를 '전체'로 바꿔 보세요.</div>`;
+      `<div class="empty"><b>조건에 맞는 가게가 없어요.</b><br>${state.openOnly?"'지금 영업 중만'은 영업시간을 입력한 가게에만 적용돼요. ":""}${state.crit.mine?"'내 맛집만'을 끄거나 ":""}반경을 넓히거나 종류를 '전체'로 바꿔 보세요.</div>`;
   }
   renderStatus();
   if(map) map.setPlaces(list, state.selected, id=>focusPlace(id,true));
@@ -387,11 +486,6 @@ function renderStatus(){
     : '<span class="hint">지도를 클릭하거나 주소를 검색해 기준 위치를 정하세요.</span>';
 }
 
-$("criteria").innerHTML =
-  `<span class="head">고르는 기준</span><span><b>카카오맵 음식점</b> 카테고리</span>`
-  + `<span>체인점(지점명) <b>기본 제외</b></span>`
-  + `<span>전화번호·도로명 주소 <b>등록된 곳만</b></span>`
-  + `<span>내 맛집 = 직접 가서 <b>★${CRITERIA.mineMin} 이상</b></span>`;
 
 /* ===== 이벤트 ===== */
 RADII.forEach(r=>{
@@ -404,26 +498,42 @@ QUICK.forEach(n=>{
   const b=document.createElement("button"); b.type="button"; b.className="chip"; b.textContent=n;
   b.addEventListener("click",()=>searchLocation(n)); $("quick").appendChild(b);
 });
-$("catRow").addEventListener("click",e=>{ const c=e.target.closest("[data-cat]")?.dataset.cat; if(c){state.cat=c;render();} });
+$("catRow").addEventListener("click",e=>{ const c=e.target.closest("[data-cat]")?.dataset.cat; if(c){state.cat=c;render(); if(c!=="전체") loadCat(c);} });
+$("openOnly").addEventListener("change",e=>{state.openOnly=e.target.checked;render();});
 $("q").addEventListener("input",e=>{state.q=e.target.value.trim();render();});
 $("sort").addEventListener("change",e=>{state.sort=e.target.value;render();});
-$("mineOnly").addEventListener("change",e=>{state.mineOnly=e.target.checked;render();});
-$("showChain").addEventListener("change",e=>{state.showChain=e.target.checked;render();});
-$("showChain").checked=state.showChain;
+$("criteria").addEventListener("click",e=>{
+  const k=e.target.closest("[data-crit]")?.dataset.crit; if(!k) return;
+  state.crit[k]=!state.crit[k]; try{localStorage.setItem("matjip-crit",JSON.stringify(state.crit));}catch(err){}
+  render(); document.querySelector(`[data-crit="${k}"]`)?.focus();
+});
 
 $("grid").addEventListener("click",e=>{
   const t=e.target;
   const star=t.closest("[data-star]");
-  if(star){ const id=star.dataset.id, p=state.places.find(x=>x.id===id);
+  if(star){ const id=star.dataset.id, p=pool().find(x=>x.id===id);
     MY[id]={...(MY[id]||{}), stars:+star.dataset.star, name:p?.name, at:new Date().toISOString().slice(0,10)}; saveMy(); render();
     document.querySelector(`#k-${CSS.escape(id)} [data-star="${star.dataset.star}"]`)?.focus(); return; }
   const clr=t.closest("[data-clear]");
-  if(clr){ delete MY[clr.dataset.clear]; saveMy(); render(); return; }
+  if(clr){ const m=MY[clr.dataset.clear]; if(m){ delete m.stars; delete m.memo; if(!m.hours) delete MY[clr.dataset.clear]; } saveMy(); render(); return; }
+  const hc=t.closest("[data-hclear]");
+  if(hc){ const m=MY[hc.dataset.hclear]; if(m){ delete m.hours; if(!m.stars) delete MY[hc.dataset.hclear]; } saveMy(); render(); toast("영업시간을 지웠어요"); return; }
   const f=t.closest("[data-focus]"); if(f) return focusPlace(f.dataset.focus);
   const c=t.closest("[data-copy]"); if(c) copy(c.dataset.copy);
 });
+$("grid").addEventListener("submit",e=>{
+  const f=e.target.closest("[data-hours]"); if(!f) return; e.preventDefault();
+  const id=f.dataset.hours, p=pool().find(x=>x.id===id);
+  const open=normTime(f.open.value), brkRaw=f.brk.value.trim(), brk=brkRaw?normTime(brkRaw):"";
+  if(!open){ toast("영업시간을 11:00-21:00 형식으로 적어 주세요"); f.open.focus(); return; }
+  if(brk===null){ toast("브레이크는 15:00-17:00 형식으로 적거나 비워 두세요"); f.brk.focus(); return; }
+  const off=[...f.querySelectorAll('input[name="off"]:checked')].map(i=>+i.value);
+  MY[id]={...(MY[id]||{}), name:p?.name||MY[id]?.name, hours:{open, brk, off}};
+  saveMy(); render(); toast("영업시간을 저장했어요");
+});
 $("grid").addEventListener("change",e=>{
   const id=e.target.dataset?.memo; if(!id||!MY[id]) return;
+  if(e.target.closest("form")) return;
   MY[id].memo=e.target.value.trim(); saveMy(); toast("메모를 저장했어요");
 });
 
@@ -486,7 +596,7 @@ $("myLoc").addEventListener("click",()=>{
 });
 function focusPlace(id,fromMap){
   state.selected=id;
-  const p=state.places.find(x=>x.id===id);
+  const p=pool().find(x=>x.id===id);
   if(!fromMap&&isPhone()&&map) setView("map");
   if(fromMap&&isPhone()) setView("list");
   if(map&&p&&!fromMap) map.panTo(p.lat,p.lng);
@@ -583,6 +693,8 @@ document.querySelectorAll("#pvSeg [data-pv]").forEach(b=>b.addEventListener("cli
 setView("list");
 render();
 useProvider(state.provider);
+// 영업 상태를 1분마다 갱신 (입력 중이거나 펼쳐 둔 폼이 있으면 건너뜀)
+setInterval(()=>{ if(!document.querySelector("#grid details[open]")&&!$("grid").contains(document.activeElement)) render(); }, 60000);
 </script>
 </body>
 </html>
