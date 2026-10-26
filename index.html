@@ -144,6 +144,35 @@ details.hours .acts{grid-column:1/-1;display:flex;gap:8px}
 .backup{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px;color:var(--muted);border-top:1px solid var(--line);padding-top:16px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:6px;font-size:14px;z-index:50;max-width:calc(100% - 32px);word-break:break-all}
 @media (max-width:640px){#map{height:calc(100vh - 300px);min-height:320px}.row .lbl{width:100%}}
+/* 카드 = 누르면 하단 시트가 열리는 버튼 */
+.card{cursor:pointer;transition:border-color .15s}
+.card:hover{border-color:var(--ink)}
+.card:focus-visible{outline:2px solid var(--chili);outline-offset:2px}
+.card .addr{font-size:14px;color:var(--muted);overflow-wrap:anywhere}
+.card .more{margin-top:auto;font-size:14px;color:var(--chili)}
+/* 하단 시트 */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.38);z-index:60}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:61;max-height:min(82vh,760px);overflow:auto;overscroll-behavior:contain;
+  background:var(--surface);color:var(--ink);border-radius:14px 14px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.18);
+  padding:8px max(20px,env(safe-area-inset-right,0px)) calc(20px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left,0px))}
+@media (min-width:720px){.sheet{left:50%;right:auto;width:680px;transform:translateX(-50%)}}
+@media (prefers-reduced-motion:no-preference){.sheet:not([hidden]){animation:sheetUp .22s ease-out}.scrim:not([hidden]){animation:fade .2s}}
+@keyframes sheetUp{from{translate:0 40px;opacity:.4}to{translate:0 0;opacity:1}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.sheet .handle{width:44px;height:5px;border-radius:3px;background:var(--line);margin:4px auto 12px}
+.sheet .shead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sheet h2{margin:0;font-family:var(--display);font-weight:400;font-size:28px;line-height:1.2;overflow-wrap:anywhere}
+.sheet .x{font:inherit;font-size:22px;line-height:1;background:none;border:0;color:var(--muted);cursor:pointer;padding:4px 6px}
+.sheet .sbody{display:flex;flex-direction:column;gap:14px;margin-top:10px}
+.sheet .sec{display:flex;flex-direction:column;gap:8px;border-top:1px dashed var(--line);padding-top:12px}
+.sheet .sec h4{margin:0;font-size:13px;color:var(--muted);font-weight:400;letter-spacing:.04em}
+.sheet .acts2{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px}
+.sheet .acts2 a,.sheet .acts2 button{font:inherit;font-size:15px;text-align:center;text-decoration:none;border:1.5px solid var(--line);border-radius:8px;padding:10px;background:var(--surface);color:var(--ink);cursor:pointer}
+.sheet .acts2 .primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.sheet .acts2 a:hover,.sheet .acts2 button:hover{border-color:var(--ink)}
+.sheet .rowcopy{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.sheet .rowcopy button{font:inherit;font-size:13px;background:none;border:1px solid var(--line);border-radius:4px;padding:2px 8px;color:var(--muted);cursor:pointer;flex:none}
+body.sheet-open{overflow:hidden}
 </style>
 <script>
   // ▼ 발급받은 키를 넣으세요. 음식점 데이터는 카카오 키로만 불러올 수 있어요.
@@ -208,6 +237,12 @@ details.hours .acts{grid-column:1/-1;display:flex;gap:8px}
     <input type="file" id="importFile" accept="application/json,.json" hidden>
   </div>
 </div>
+
+<div class="scrim" id="scrim" hidden></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+  <div class="handle" aria-hidden="true"></div>
+  <div id="sheetBody"></div>
+</section>
 
 <script>
 /* ===== 기준 — 카카오 장소 API로 확인할 수 있는 정보만 씁니다 =====
@@ -418,17 +453,45 @@ function card(p){
     my?.stars&&!isMine(p)?`<span class="b low">내 별점 ${my.stars}</span>`:'',
     p.branch?`<span class="b chain">체인점 (${esc(p.branch)})</span>`:''
   ].join("");
-  return `<article class="card${state.selected===p.id?" on":""}${isMine(p)?" mine":""}" id="k-${esc(p.id)}" data-id="${esc(p.id)}">
+  return `<article class="card${state.selected===p.id?" on":""}${isMine(p)?" mine":""}" id="k-${esc(p.id)}" data-open="${esc(p.id)}" role="button" tabindex="0" aria-haspopup="dialog" aria-label="${esc(p.name)} 메뉴 열기">
     <div class="top"><div><h3>${esc(p.name)}</h3><div class="cat">${esc(p.top)}${p.detail?" · "+esc(p.detail):""}</div></div>
     ${p.dist!=null?`<span class="walk">도보 약 ${walkMin(p.dist)}분<br>${fmtDist(p.dist)}</span>`:""}</div>
     ${stateRow(p)}
     ${badges?`<div class="badges">${badges}</div>`:""}
-    <dl class="info"><dt>주소</dt><dd>${esc(p.road||p.addr)}</dd><dt>전화</dt><dd class="mono">${esc(p.phone)}</dd></dl>
-    <div class="my">${starsHtml(p)}
-      ${hoursForm(p)}
-      ${my?.stars?`<textarea class="memo" rows="2" data-memo="${esc(p.id)}" placeholder="한 줄 메모 (예: 순대국 특, 점심 웨이팅 10분)" aria-label="${esc(p.name)} 메모">${esc(my.memo||"")}</textarea>`:""}</div>
-    <div class="links"><a href="${esc(p.url)}" target="_blank" rel="noopener">카카오맵 상세</a><a href="${nUrl}" target="_blank" rel="noopener">네이버 지도</a><button type="button" data-focus="${esc(p.id)}">지도에서 보기</button><button type="button" data-copy="${esc(p.url)}">링크 복사</button></div>
+    <div class="addr">${esc(p.road||p.addr)}</div>
+    ${my?.memo?`<p class="memo-view">${esc(my.memo)}</p>`:""}
+    <span class="more" aria-hidden="true">별점 · 영업시간 · 길찾기 ›</span>
   </article>`;
+}
+function sheetHtml(p){
+  const my=myOf(p.id);
+  const nUrl="https://map.naver.com/p/search/"+encodeURIComponent(p.name);
+  const kRoute=`https://map.kakao.com/link/to/${encodeURIComponent(p.name)},${p.lat},${p.lng}`;
+  const badges=[
+    isMine(p)?'<span class="b mine">내 맛집</span>':'',
+    p.branch?`<span class="b chain">체인점 (${esc(p.branch)})</span>`:''
+  ].join("");
+  return `<div class="shead"><div><h2 id="sheetTitle">${esc(p.name)}</h2>
+      <div class="cat">${esc(p.top)}${p.detail?" · "+esc(p.detail):""}${p.dist!=null?` · 도보 약 ${walkMin(p.dist)}분 (${fmtDist(p.dist)})`:""}</div></div>
+    <button type="button" class="x" data-close aria-label="닫기">✕</button></div>
+  <div class="sbody">
+    ${stateRow(p)}${badges?`<div class="badges">${badges}</div>`:""}
+    <div class="acts2">
+      <a class="primary" href="${esc(p.url)}" target="_blank" rel="noopener">카카오맵 상세</a>
+      <a href="${kRoute}" target="_blank" rel="noopener">카카오 길찾기</a>
+      <a href="${nUrl}" target="_blank" rel="noopener">네이버 지도</a>
+      ${map?`<button type="button" data-focus="${esc(p.id)}">지도에서 보기</button>`:""}
+    </div>
+    <div class="sec"><h4>가게 정보</h4>
+      <div class="rowcopy"><span>${esc(p.road||p.addr)}</span><button type="button" data-copy="${esc(p.road||p.addr)}" data-what="주소">복사</button></div>
+      <div class="rowcopy"><span class="mono" style="font-family:var(--mono);font-size:14px">${esc(p.phone)}</span>${p.phone?`<button type="button" data-copy="${esc(p.phone)}" data-what="전화번호">복사</button>`:""}</div>
+      <div class="rowcopy"><span class="hint">카카오맵 링크</span><button type="button" data-copy="${esc(p.url)}" data-what="링크">복사</button></div>
+    </div>
+    <div class="sec"><h4>내 평가</h4>${starsHtml(p)}
+      ${my?.stars?`<textarea class="memo" rows="2" data-memo="${esc(p.id)}" placeholder="한 줄 메모 (예: 순대국 특, 점심 웨이팅 10분)" aria-label="${esc(p.name)} 메모">${esc(my.memo||"")}</textarea>`:'<span class="hint">별점을 남기면 메모도 쓸 수 있어요.</span>'}
+    </div>
+    <div class="sec"><h4>영업시간</h4>${hoursForm(p)}</div>
+  </div>`;
 }
 
 function render(){
@@ -509,19 +572,28 @@ $("criteria").addEventListener("click",e=>{
 });
 
 $("grid").addEventListener("click",e=>{
+  const c=e.target.closest("[data-open]"); if(c) openSheet(c.dataset.open);
+});
+$("grid").addEventListener("keydown",e=>{
+  if(e.key!=="Enter"&&e.key!==" ") return;
+  const c=e.target.closest("[data-open]"); if(c&&e.target===c){ e.preventDefault(); openSheet(c.dataset.open); }
+});
+const refresh=()=>{ render(); renderSheet(); };
+$("sheet").addEventListener("click",e=>{
   const t=e.target;
+  if(t.closest("[data-close]")) return closeSheet();
   const star=t.closest("[data-star]");
   if(star){ const id=star.dataset.id, p=pool().find(x=>x.id===id);
-    MY[id]={...(MY[id]||{}), stars:+star.dataset.star, name:p?.name, at:new Date().toISOString().slice(0,10)}; saveMy(); render();
-    document.querySelector(`#k-${CSS.escape(id)} [data-star="${star.dataset.star}"]`)?.focus(); return; }
+    MY[id]={...(MY[id]||{}), stars:+star.dataset.star, name:p?.name, at:new Date().toISOString().slice(0,10)}; saveMy(); refresh();
+    $("sheet").querySelector(`[data-star="${star.dataset.star}"]`)?.focus(); return; }
   const clr=t.closest("[data-clear]");
-  if(clr){ const m=MY[clr.dataset.clear]; if(m){ delete m.stars; delete m.memo; if(!m.hours) delete MY[clr.dataset.clear]; } saveMy(); render(); return; }
+  if(clr){ const m=MY[clr.dataset.clear]; if(m){ delete m.stars; delete m.memo; if(!m.hours) delete MY[clr.dataset.clear]; } saveMy(); refresh(); return; }
   const hc=t.closest("[data-hclear]");
-  if(hc){ const m=MY[hc.dataset.hclear]; if(m){ delete m.hours; if(!m.stars) delete MY[hc.dataset.hclear]; } saveMy(); render(); toast("영업시간을 지웠어요"); return; }
-  const f=t.closest("[data-focus]"); if(f) return focusPlace(f.dataset.focus);
-  const c=t.closest("[data-copy]"); if(c) copy(c.dataset.copy);
+  if(hc){ const m=MY[hc.dataset.hclear]; if(m){ delete m.hours; if(!m.stars) delete MY[hc.dataset.hclear]; } saveMy(); refresh(); toast("영업시간을 지웠어요"); return; }
+  const f=t.closest("[data-focus]"); if(f){ const id=f.dataset.focus; closeSheet(); return focusPlace(id); }
+  const c=t.closest("[data-copy]"); if(c) copy(c.dataset.copy, c.dataset.what);
 });
-$("grid").addEventListener("submit",e=>{
+$("sheet").addEventListener("submit",e=>{
   const f=e.target.closest("[data-hours]"); if(!f) return; e.preventDefault();
   const id=f.dataset.hours, p=pool().find(x=>x.id===id);
   const open=normTime(f.open.value), brkRaw=f.brk.value.trim(), brk=brkRaw?normTime(brkRaw):"";
@@ -529,16 +601,60 @@ $("grid").addEventListener("submit",e=>{
   if(brk===null){ toast("브레이크는 15:00-17:00 형식으로 적거나 비워 두세요"); f.brk.focus(); return; }
   const off=[...f.querySelectorAll('input[name="off"]:checked')].map(i=>+i.value);
   MY[id]={...(MY[id]||{}), name:p?.name||MY[id]?.name, hours:{open, brk, off}};
-  saveMy(); render(); toast("영업시간을 저장했어요");
+  saveMy(); refresh(); toast("영업시간을 저장했어요");
 });
-$("grid").addEventListener("change",e=>{
+$("sheet").addEventListener("change",e=>{
   const id=e.target.dataset?.memo; if(!id||!MY[id]) return;
   if(e.target.closest("form")) return;
-  MY[id].memo=e.target.value.trim(); saveMy(); toast("메모를 저장했어요");
+  MY[id].memo=e.target.value.trim(); saveMy(); render(); toast("메모를 저장했어요");
 });
 
+/* ===== 하단 시트 ===== */
+let sheetId=null, lastFocus=null;
+function renderSheet(){
+  if(!sheetId) return;
+  const p=pool().find(x=>x.id===sheetId);
+  if(!p) return closeSheet();
+  const keepFocus=document.activeElement?.closest?.("#sheet")?(document.activeElement.dataset.star||document.activeElement.dataset.close!==undefined&&"close"):null;
+  $("sheetBody").innerHTML=sheetHtml(p);
+  if(keepFocus) $("sheet").querySelector(keepFocus==="close"?"[data-close]":`[data-star="${keepFocus}"]`)?.focus();
+}
+function openSheet(id){
+  lastFocus=document.activeElement;
+  sheetId=id; state.selected=id;
+  render(); renderSheet();
+  $("scrim").hidden=false; $("sheet").hidden=false; $("sheet").scrollTop=0;
+  document.body.classList.add("sheet-open");
+  $("sheet").querySelector("[data-close]")?.focus();
+}
+function closeSheet(){
+  if(!sheetId) return;
+  sheetId=null; $("scrim").hidden=true; $("sheet").hidden=true;
+  document.body.classList.remove("sheet-open");
+  if(lastFocus&&document.contains(lastFocus)) lastFocus.focus();
+  else document.getElementById("k-"+state.selected)?.focus();
+}
+$("scrim").addEventListener("click",closeSheet);
+document.addEventListener("keydown",e=>{
+  if(!sheetId) return;
+  if(e.key==="Escape"){ e.preventDefault(); closeSheet(); return; }
+  if(e.key==="Tab"){ // 시트 안에서만 포커스 이동
+    const f=[...$("sheet").querySelectorAll('a[href],button:not([disabled]),input,textarea,summary,select')].filter(x=>x.offsetParent!==null);
+    if(!f.length) return; const first=f[0], last=f.at(-1);
+    if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+  }
+});
+/* 아래로 끌어서 닫기 (손잡이·머리 부분) */
+(function(){
+  let y0=null;
+  $("sheet").addEventListener("touchstart",e=>{ if($("sheet").scrollTop<=0&&e.target.closest(".handle,.shead")) y0=e.touches[0].clientY; },{passive:true});
+  $("sheet").addEventListener("touchmove",e=>{ if(y0==null) return; const dy=e.touches[0].clientY-y0; $("sheet").style.translate=dy>0?`0 ${dy}px`:""; },{passive:true});
+  $("sheet").addEventListener("touchend",e=>{ if(y0==null) return; const dy=(e.changedTouches[0].clientY-y0); $("sheet").style.translate=""; y0=null; if(dy>90) closeSheet(); });
+})();
+
 function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2400); }
-function copy(text){ try{ navigator.clipboard.writeText(text).then(()=>toast("링크를 복사했어요"),()=>toast(text)); }catch(e){ toast(text); } }
+function copy(text,what="링크"){ try{ navigator.clipboard.writeText(text).then(()=>toast(`${what}를 복사했어요`),()=>toast(text)); }catch(e){ toast(text); } }
 
 $("exportBtn").addEventListener("click",()=>{
   const blob=new Blob([JSON.stringify(MY,null,2)],{type:"application/json"});
@@ -595,15 +711,13 @@ $("myLoc").addEventListener("click",()=>{
     {enableHighAccuracy:true,timeout:8000});
 });
 function focusPlace(id,fromMap){
+  if(fromMap) return openSheet(id);   // 지도 핀을 누르면 그 자리에서 하단 메뉴가 열림
   state.selected=id;
   const p=pool().find(x=>x.id===id);
-  if(!fromMap&&isPhone()&&map) setView("map");
-  if(fromMap&&isPhone()) setView("list");
-  if(map&&p&&!fromMap) map.panTo(p.lat,p.lng);
+  if(isPhone()&&map) setView("map");
+  if(map&&p) map.panTo(p.lat,p.lng);
   render();
-  const el=document.getElementById("k-"+id);
-  if(fromMap&&el) el.scrollIntoView({behavior:"smooth",block:"center"});
-  else if(map) $("map").scrollIntoView({behavior:"smooth",block:"center"});
+  if(map) $("map").scrollIntoView({behavior:"smooth",block:"center"});
 }
 
 /* ===== 지도 ===== */
@@ -694,7 +808,7 @@ setView("list");
 render();
 useProvider(state.provider);
 // 영업 상태를 1분마다 갱신 (입력 중이거나 펼쳐 둔 폼이 있으면 건너뜀)
-setInterval(()=>{ if(!document.querySelector("#grid details[open]")&&!$("grid").contains(document.activeElement)) render(); }, 60000);
+setInterval(()=>{ if(!sheetId) render(); }, 60000);
 </script>
 </body>
 </html>
