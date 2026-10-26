@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
-/* Layout: 간판 헤더 → 맛집 기준 한 줄 → 지도(네이버/카카오 전환, 반경 선택) → 필터 → 카드 그리드 */
+/* Layout: 간판 헤더 → 기준 한 줄 → (폰: 목록/지도 탭) → 지도 → 필터 → 카드. 기본은 점심 모드 */
 :root{
   --bg:#F3F5F2; --surface:#FFFFFF; --ink:#1C2320; --muted:#5E6A64; --line:#D9E0DB;
   --chili:#C8281E; --chili-soft:#FBE3E0; --mustard:#E0A526; --mustard-soft:#FBF0D6;
@@ -24,35 +24,55 @@
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
-.wrap{max-width:1040px;margin:0 auto;padding-block:40px 64px;display:flex;flex-direction:column;gap:28px}
+.wrap{max-width:1040px;margin:0 auto;padding-block:32px 64px;display:flex;flex-direction:column;gap:22px}
 
-header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:16px;border-bottom:3px solid var(--ink);padding-bottom:20px}
-.sign{font-family:var(--display);font-weight:400;font-size:clamp(40px,8vw,72px);line-height:1;margin:0;text-wrap:balance}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 16px;border-bottom:3px solid var(--ink);padding-bottom:16px}
+.sign{font-family:var(--display);font-weight:400;font-size:clamp(36px,7vw,60px);line-height:1;margin:0;text-wrap:balance}
 .sign em{font-style:normal;color:var(--chili)}
-.tag{margin:8px 0 0;color:var(--muted);max-width:52ch}
+.tag{margin:6px 0 0;color:var(--muted);max-width:52ch}
 .note{font-family:var(--mono);font-size:12px;color:var(--muted);border:1px dashed var(--line);padding:6px 10px;border-radius:4px}
+.warn{margin:0;padding:10px 12px;border-radius:6px;background:var(--mustard-soft);font-size:14px}
+.warn code{font-family:var(--mono);font-size:12px}
 
 .criteria{display:flex;flex-wrap:wrap;gap:6px;font-size:13px;align-items:center}
 .criteria span{border:1px solid var(--line);border-radius:4px;padding:2px 9px;color:var(--muted);background:var(--surface)}
 .criteria span b{font-family:var(--mono);font-weight:500;color:var(--ink)}
 .criteria .head{border:0;background:none;padding-left:0;color:var(--ink);font-weight:700}
 
-/* 지도 */
-.mapbox{display:flex;flex-direction:column;gap:10px}
-.maptop{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
 .seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:6px;overflow:hidden}
 .seg button{font:inherit;font-size:15px;border:0;background:var(--surface);color:var(--ink);padding:6px 14px;cursor:pointer}
 .seg button+button{border-left:1.5px solid var(--ink)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.seg button:disabled{color:var(--muted);cursor:not-allowed}
+
+/* 폰 전용 목록/지도 탭 */
+.viewtabs{display:none}
+@media (max-width:640px){
+  .viewtabs{display:flex;position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--bg);padding-block:8px}
+  .viewtabs .seg{flex:1}.viewtabs .seg button{flex:1}
+  body[data-view="list"] .mapbox{display:none}
+  body[data-view="map"] .filters, body[data-view="map"] #grid, body[data-view="map"] .criteria{display:none}
+}
+
+/* 지도 */
+.mapbox{display:flex;flex-direction:column;gap:10px}
+.mapbox.nomap #map,.mapbox.nomap .locbar{display:none}
+.maptop{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
 .radius{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
 .locbar{display:flex;flex-wrap:wrap;gap:8px}
 .locbar input{flex:1 1 240px;min-width:0}
-#map{width:100%;height:420px;border-radius:6px;border:1px solid var(--line);background:var(--surface);overflow:hidden}
+#map{width:100%;height:400px;border-radius:6px;border:1px solid var(--line);background:var(--surface);overflow:hidden}
 .mapmsg{height:100%;display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted)}
-.mapmsg code{font-family:var(--mono);font-size:13px;background:var(--bg);padding:2px 6px;border-radius:4px}
 .status{font-size:15px}
 .status b{color:var(--chili);font-weight:400}
 .hint{color:var(--muted);font-size:14px}
+
+/* 지도 핀 (테마 색을 따름) */
+.pin{font:13px var(--body);white-space:nowrap;cursor:pointer;background:var(--surface);color:var(--ink);border:1.5px solid var(--ink);border-radius:999px;padding:2px 10px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.pin.near{border-style:dashed}
+.pin.on{background:var(--chili);color:#fff;border-color:var(--chili)}
+.pin:focus-visible{outline:2px solid var(--chili);outline-offset:2px}
+.centerdot{width:18px;height:18px;border-radius:50%;background:var(--ink);border:3px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.4)}
 
 /* 필터 */
 .filters{display:flex;flex-direction:column;gap:12px}
@@ -62,53 +82,59 @@ header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-be
 .chip:hover,.btn:hover{border-color:var(--ink)}
 .chip[aria-pressed="true"],.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .btn{border-radius:6px}
-button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--chili);outline-offset:2px}
+button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--chili);outline-offset:2px}
 .tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 input[type=search],select{font:inherit;font-size:15px;background:var(--surface);color:var(--ink);border:1.5px solid var(--line);border-radius:6px;padding:7px 12px}
 .tools input[type=search]{flex:1 1 220px;min-width:0}
 .check{display:flex;align-items:center;gap:6px;font-size:15px;cursor:pointer}
 .check input{width:18px;height:18px;accent-color:var(--ink)}
+details.more summary{cursor:pointer;font-size:14px;color:var(--muted);width:max-content}
+details.more[open] summary{margin-bottom:10px}
+details.more .inner{display:flex;flex-direction:column;gap:12px}
 .count{font-family:var(--mono);font-size:13px;color:var(--muted)}
 
 /* 카드 */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
-.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:20px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px;display:flex;flex-direction:column;gap:9px;min-width:0;scroll-margin-top:72px}
 .card.on{border-color:var(--chili);box-shadow:0 0 0 1px var(--chili)}
 .card.near{border-style:dashed}
 .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.card h3{margin:0;font-family:var(--display);font-weight:400;font-size:24px;line-height:1.2}
+.card h3{margin:0;font-family:var(--display);font-weight:400;font-size:23px;line-height:1.2}
 .area{font-size:14px;color:var(--muted)}
-.dist{font-family:var(--mono);font-size:13px;color:var(--muted);white-space:nowrap}
-.ratings{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.rt{display:flex;flex-direction:column;gap:0;background:var(--bg);border-radius:4px;padding:6px 10px;box-shadow:inset 3px 0 0 var(--c)}
-.rt.n{--c:var(--naver)} .rt.k{--c:var(--kakao)}
-.rt .l{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
-.rt span{font-size:13px;color:var(--muted)}
-.rt b{font-family:var(--mono);font-weight:500;font-size:15px;font-variant-numeric:tabular-nums}
-.rt b.none{font-family:var(--body);font-size:13px;color:var(--muted)}
-.rt small{font-family:var(--mono);font-size:12px;color:var(--muted)}
-.rt small.down{color:var(--chili)}
-.prices{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line);padding-block:8px;font-size:14px}
-.prices span{color:var(--muted)}
-.prices .won{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);float:right}
-.hours{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 10px}
+.state{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:14px}
+.open{font-size:13px;padding:1px 8px;border-radius:4px;font-weight:700}
+.open.yes{background:var(--good-soft);color:var(--good)}
+.open.brk{background:var(--mustard-soft);color:var(--ink)}
+.open.no{background:var(--bg);color:var(--muted)}
+.walk{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.main{display:flex;justify-content:space-between;gap:12px;border-top:1px dashed var(--line);border-bottom:1px dashed var(--line);padding-block:8px;font-size:15px}
+.main .won{font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.main .won small{font-family:var(--body);font-size:12px;color:var(--muted);margin-right:4px}
+.scores{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px}
+.scores span{display:inline-flex;align-items:baseline;gap:5px}
+.scores i{font-style:normal;color:var(--muted);font-size:13px;box-shadow:inset 3px 0 0 var(--c);padding-left:7px}
+.scores .n{--c:var(--naver)} .scores .k{--c:var(--kakao)}
+.scores b{font-family:var(--mono);font-weight:500}
 .quote{margin:0}
-.quote.pending{color:var(--muted);font-size:14px}
 .badges{display:flex;flex-wrap:wrap;gap:6px}
 .b{font-size:13px;padding:2px 9px;border-radius:4px;background:var(--bg);color:var(--muted)}
-.b.hot{background:var(--chili-soft);color:var(--chili)}
-.b.down{background:var(--chili-soft);color:var(--chili)}
+.b.hot,.b.down{background:var(--chili-soft);color:var(--chili)}
 .b.wait{color:var(--ink);box-shadow:inset 3px 0 0 var(--mustard)}
-.b.fr{background:var(--mustard-soft);color:var(--ink)}
+.b.fr,.b.stale{background:var(--mustard-soft);color:var(--ink)}
 .b.visit{background:var(--good-soft);color:var(--good)}
-.b.stale{background:var(--mustard-soft);color:var(--ink)}
 .fails{margin:0;padding:8px 10px;border-radius:4px;background:var(--chili-soft);color:var(--chili);font-size:13px}
-.meta{font-family:var(--mono);font-size:12px;color:var(--muted)}
+details.detail summary{cursor:pointer;font-size:14px;color:var(--muted)}
+details.detail .body{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:14px;margin-top:8px}
+details.detail .body dt{color:var(--muted)}
+details.detail .body dd{margin:0;min-width:0}
+details.detail .mono{font-family:var(--mono);font-size:13px}
+.down{color:var(--chili)}
 .links{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin-top:auto}
 .links button,.links a{font:inherit;background:none;border:0;padding:0;color:var(--chili);cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:32px 16px;border:1.5px dashed var(--line);border-radius:6px}
+.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:28px 16px;border:1.5px dashed var(--line);border-radius:6px}
 .empty b{color:var(--ink);font-weight:400}
-@media (max-width:640px){#map{height:320px}.row .lbl{width:100%}}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:6px;font-size:14px;z-index:50;max-width:calc(100% - 32px);word-break:break-all}
+@media (max-width:640px){#map{height:calc(100vh - 260px);min-height:320px}.row .lbl{width:100%}}
 </style>
 <script>
   // ▼ 발급받은 키를 넣으세요. 하나만 넣어도 그 지도만 동작합니다.
@@ -116,23 +142,28 @@ input[type=search],select{font:inherit;font-size:15px;background:var(--surface);
   const KAKAO_JS_KEY = "0529da52a9f8f054432381911324b332"; // 카카오 디벨로퍼스 · JavaScript 키
 </script>
 </head>
-<body>
+<body data-view="list">
 <div class="wrap">
   <header>
     <div>
       <h1 class="sign">골목 <em>맛집</em> 수첩</h1>
-      <p class="tag">평점과 방문자 리뷰 기준을 모두 넘은 곳만 맛집으로 골랐어요. 지도에서 위치를 찍으면 걸어갈 수 있는 거리부터 보여 드려요.</p>
+      <p class="tag">평점과 방문자 리뷰 기준을 모두 넘은 곳만 골랐어요. 오늘 점심, 걸어갈 수 있는 곳부터 보여 드려요.</p>
     </div>
     <span class="note">초안 · 가게 정보와 평점은 예시 데이터</span>
   </header>
 
+  <div id="dataWarn" hidden></div>
   <div class="criteria" id="criteria"></div>
 
-  <section class="mapbox" aria-label="위치 설정">
+  <div class="viewtabs"><div class="seg" role="group" aria-label="보기 전환">
+    <button type="button" data-view="list">목록</button><button type="button" data-view="map">지도</button>
+  </div></div>
+
+  <section class="mapbox" id="mapbox" aria-label="위치 설정">
     <div class="maptop">
-      <div class="seg" role="group" aria-label="지도 선택">
-        <button type="button" id="pvNaver" data-pv="naver">네이버 지도</button>
-        <button type="button" id="pvKakao" data-pv="kakao">카카오맵</button>
+      <div class="seg" role="group" aria-label="지도 선택" id="pvSeg">
+        <button type="button" data-pv="naver">네이버 지도</button>
+        <button type="button" data-pv="kakao">카카오맵</button>
       </div>
       <div class="radius"><span>반경</span><div class="seg" role="group" aria-label="반경 선택" id="radiusSeg"></div></div>
     </div>
@@ -149,18 +180,24 @@ input[type=search],select{font:inherit;font-size:15px;background:var(--surface);
   <section class="filters" aria-label="필터">
     <div class="row" id="catRow"><span class="lbl">종류</span></div>
     <div class="row" id="partyRow"><span class="lbl">인원수</span></div>
-    <div class="row" id="priceRow"><span class="lbl">점심 1인</span></div>
     <div class="tools">
       <input type="search" id="q" placeholder="가게 이름, 메뉴, 동네로 찾기" aria-label="검색">
       <select id="sort" aria-label="정렬">
-        <option value="dist">가까운 순</option>
+        <option value="auto">추천 순 (위치 있으면 가까운 순)</option>
         <option value="lunch">점심 가성비 순</option>
         <option value="naver">네이버 평점 순</option>
         <option value="kakao">카카오 평점 순</option>
         <option value="name">이름순</option>
       </select>
-      <label class="check"><input type="checkbox" id="showFr"> 프랜차이즈 포함</label>
+      <label class="check"><input type="checkbox" id="openOnly"> 지금 영업 중만</label>
     </div>
+    <details class="more" id="moreFilters">
+      <summary>필터 더 보기</summary>
+      <div class="inner">
+        <div class="row" id="priceRow"><span class="lbl">점심 1인</span></div>
+        <label class="check"><input type="checkbox" id="showFr"> 프랜차이즈 포함</label>
+      </div>
+    </details>
     <div class="count" id="count"></div>
   </section>
 
@@ -170,36 +207,37 @@ input[type=search],select{font:inherit;font-size:15px;background:var(--surface);
 <script>
 /* ===== 맛집 기준 (토론 합의안) — 숫자를 바꾸면 기준이 바뀝니다 ===== */
 const CRITERIA = {
-  naverMin: 4.5,               // 네이버 평점 하한
-  kakaoMin: 3.5,               // 카카오 평점 하한
+  naverMin: 4.5,
+  kakaoMin: 3.5,
   reviewMin: {"핵심": 500, "주거지": 200}, // 방문자 리뷰 수(네이버 + 카카오) 하한, 상권별
-  recentMonths: 3,             // 최근 평점을 보는 기간
-  refreshDays: 90              // 수집일로부터 이 기간이 지나면 '갱신 필요'
+  recentMonths: 3,
+  refreshDays: 90
 };
 const RADII = [1000, 3000, 5000];
-const TODAY = new Date();
+const WALK_M_PER_MIN = 80;   // 도보 시간 계산용 (직선거리 기준이라 실제보다 짧을 수 있음)
+const DAYS = ["일","월","화","수","목","금","토"];
 
 /* 예시 데이터. 가게, 좌표, 평점, 리뷰 수 모두 가상의 값입니다.
    naver / kakao: { score: 누적 평점, recent: 최근 3개월 평점, count: 방문자 리뷰 수 }
-   zone: "핵심" | "주거지" 상권 · lunch / dinner: 1인 기준 원
-   franchise: 프랜차이즈 지점 여부 · visited: 직접 가 봤는지 (true일 때만 한 줄 평 표시)
+   zone: "핵심" | "주거지" · lunch / dinner: 1인 원 · hours: "11:00–21:00" · brk: "15:00–17:00" 또는 "없음"
+   off: 정기 휴무 요일 (0=일 … 6=토) · franchise · visited: 직접 가 봤으면 true (한 줄 평이 보임)
    checked: 평점·리뷰 수를 확인한 날짜 */
 const DATA = [
-  {name:"할매 순대국", area:"망원동 시장 골목", zone:"주거지", cat:"한식", menu:"순대국 특", lunch:10000, dinner:10000, hours:"07:00–21:00", brk:"없음", quote:"국물이 맑고 진해요. 깍두기 리필 필수.", tags:["혼밥","아침 영업"], wait:false, party:["1인","2인","3~4인"], lat:37.5560, lng:126.9050, franchise:false, visited:true, checked:"2026-10-20", naver:{score:4.61,recent:4.63,count:1284}, kakao:{score:4.2,recent:4.1,count:87}},
-  {name:"동네 칼국수", area:"망원동 주택가", zone:"주거지", cat:"한식", menu:"바지락 칼국수", lunch:9000, dinner:9000, hours:"11:00–20:00", brk:"15:00–16:30", quote:"면을 직접 뽑아요. 김치가 맛있어요.", tags:["혼밥"], wait:false, party:["1인","2인","3~4인"], lat:37.5585, lng:126.9020, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.58,recent:4.6,count:236}, kakao:{score:3.9,recent:3.9,count:31}},
-  {name:"소금 우동집", area:"홍대입구역 2번 출구", zone:"핵심", cat:"일식", menu:"붓카케 우동", lunch:9500, dinner:9500, hours:"11:30–21:00", brk:"15:00–17:00", quote:"면발 탄력이 확실히 달라요.", tags:["혼밥"], wait:true, party:["1인","2인"], lat:37.5578, lng:126.9238, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.48,recent:4.5,count:2310}, kakao:{score:3.9,recent:3.8,count:142}},
-  {name:"본가 김밥 홍대점", area:"홍대 걷고싶은거리", zone:"핵심", cat:"한식", menu:"참치 김밥 + 라볶이", lunch:8000, dinner:8000, hours:"08:00–22:00", brk:"없음", quote:"", tags:["혼밥","포장"], wait:false, party:["1인","2인"], lat:37.5555, lng:126.9225, franchise:true, visited:false, checked:"2026-10-20", naver:{score:4.52,recent:4.5,count:2100}, kakao:{score:3.6,recent:3.6,count:190}},
-  {name:"홍원 반점", area:"연남동", zone:"핵심", cat:"중식", menu:"고추 짬뽕", lunch:11000, dinner:24000, hours:"11:00–21:30", brk:"15:30–17:00", quote:"불맛 제대로. 탕수육은 부먹으로 나와요.", tags:["단체석","매운맛"], wait:true, party:["2인","3~4인","5인 이상"], lat:37.5620, lng:126.9255, franchise:false, visited:true, checked:"2026-10-20", naver:{score:4.52,recent:4.31,count:3105}, kakao:{score:4.4,recent:4.0,count:211}},
-  {name:"오븐 앤 바질", area:"합정동", zone:"핵심", cat:"양식", menu:"마르게리타 피자", lunch:16000, dinner:22000, hours:"11:30–22:00", brk:"15:00–17:00", quote:"도우가 쫄깃해요.", tags:["데이트"], wait:false, party:["2인","3~4인"], lat:37.5490, lng:126.9150, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.35,recent:4.3,count:876}, kakao:{score:3.7,recent:3.7,count:54}},
-  {name:"솥밥 한 끼", area:"성수동", zone:"핵심", cat:"한식", menu:"전복 솥밥", lunch:16000, dinner:16000, hours:"11:00–21:00", brk:"15:00–17:00", quote:"누룽지까지 한 그릇. 반찬이 정갈해요.", tags:["부모님과","예약 가능"], wait:true, party:["2인","3~4인"], lat:37.5440, lng:127.0560, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.71,recent:4.7,count:1902}, kakao:{score:4.5,recent:4.4,count:133}},
-  {name:"동네 돈카츠", area:"서교동", zone:"핵심", cat:"일식", menu:"로스카츠 정식", lunch:13000, dinner:13000, hours:"11:00–20:30", brk:"15:00–17:00", quote:"두툼한데 촉촉해요.", tags:["혼밥"], wait:false, party:["1인","2인"], lat:37.5530, lng:126.9200, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.40,recent:4.4,count:654}, kakao:{score:4.0,recent:4.0,count:61}},
-  {name:"마포 숯불갈비", area:"공덕동 먹자골목", zone:"핵심", cat:"한식", menu:"돼지 양념갈비 1인", lunch:12000, dinner:17000, hours:"11:30–23:00", brk:"없음", quote:"직원분이 구워 줘요.", tags:["회식","단체석"], wait:true, party:["2인","3~4인","5인 이상"], lat:37.5440, lng:126.9520, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.43,recent:4.4,count:2788}, kakao:{score:4.1,recent:4.1,count:176}},
-  {name:"느린 커피", area:"성수동 서울숲길", zone:"핵심", cat:"카페", menu:"핸드드립 + 휘낭시에", lunch:8500, dinner:8500, hours:"10:00–22:00", brk:"없음", quote:"", tags:["작업하기"], wait:false, party:["1인","2인"], lat:37.5470, lng:127.0420, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.55,recent:4.6,count:1120}, kakao:{score:null,recent:null,count:0}},
-  {name:"쌀국수 사이공", area:"강남역 상가 2층", zone:"핵심", cat:"아시안", menu:"양지 쌀국수", lunch:10500, dinner:10500, hours:"10:30–21:30", brk:"없음", quote:"", tags:["혼밥","해장"], wait:false, party:["1인","2인","3~4인"], lat:37.4985, lng:127.0270, franchise:false, visited:false, checked:"2026-07-01", naver:{score:4.21,recent:4.2,count:943}, kakao:{score:3.6,recent:3.5,count:98}},
-  {name:"파스타 바 루체", area:"역삼동", zone:"핵심", cat:"양식", menu:"명란 크림 파스타", lunch:14500, dinner:17500, hours:"11:30–22:00", brk:"15:00–17:30", quote:"", tags:["데이트","예약 가능"], wait:false, party:["2인","3~4인"], lat:37.5010, lng:127.0370, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.30,recent:4.3,count:512}, kakao:{score:3.8,recent:3.8,count:37}},
-  {name:"양꼬치 초원", area:"건대입구", zone:"핵심", cat:"아시안", menu:"양갈비 + 꿔바로우", lunch:15000, dinner:28000, hours:"12:00–24:00", brk:"없음", quote:"", tags:["회식","단체석"], wait:true, party:["2인","3~4인","5인 이상"], lat:37.5400, lng:127.0700, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.38,recent:4.4,count:1677}, kakao:{score:4.3,recent:4.3,count:204}},
-  {name:"스시 하루", area:"신논현역", zone:"핵심", cat:"일식", menu:"오마카세", lunch:35000, dinner:80000, hours:"12:00–22:00", brk:"14:30–18:00", quote:"", tags:["기념일","예약 필수"], wait:false, party:["1인","2인"], lat:37.5045, lng:127.0250, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.82,recent:4.8,count:731}, kakao:{score:4.7,recent:4.7,count:45}},
-  {name:"한우 다이닝 소반", area:"선릉역", zone:"핵심", cat:"한식", menu:"한우 코스", lunch:48000, dinner:120000, hours:"11:30–22:00", brk:"15:00–17:30", quote:"", tags:["부모님과","룸 있음","예약 필수"], wait:false, party:["2인","3~4인"], lat:37.5045, lng:127.0490, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.66,recent:4.6,count:418}, kakao:{score:4.4,recent:4.4,count:29}}
+  {name:"할매 순대국", area:"망원동 시장 골목", zone:"주거지", cat:"한식", menu:"순대국 특", lunch:10000, dinner:10000, hours:"07:00–21:00", brk:"없음", off:[1], quote:"국물이 맑고 진해요. 깍두기 리필 필수.", tags:["혼밥","아침 영업"], wait:false, party:["1인","2인","3~4인"], lat:37.5560, lng:126.9050, franchise:false, visited:true, checked:"2026-10-20", naver:{score:4.61,recent:4.63,count:1284}, kakao:{score:4.2,recent:4.1,count:87}},
+  {name:"동네 칼국수", area:"망원동 주택가", zone:"주거지", cat:"한식", menu:"바지락 칼국수", lunch:9000, dinner:9000, hours:"11:00–20:00", brk:"15:00–16:30", off:[0], quote:"", tags:["혼밥"], wait:false, party:["1인","2인","3~4인"], lat:37.5585, lng:126.9020, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.58,recent:4.6,count:236}, kakao:{score:3.9,recent:3.9,count:31}},
+  {name:"소금 우동집", area:"홍대입구역 2번 출구", zone:"핵심", cat:"일식", menu:"붓카케 우동", lunch:9500, dinner:9500, hours:"11:30–21:00", brk:"15:00–17:00", off:[], quote:"", tags:["혼밥"], wait:true, party:["1인","2인"], lat:37.5578, lng:126.9238, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.48,recent:4.5,count:2310}, kakao:{score:3.9,recent:3.8,count:142}},
+  {name:"본가 김밥 홍대점", area:"홍대 걷고싶은거리", zone:"핵심", cat:"한식", menu:"참치 김밥 + 라볶이", lunch:8000, dinner:8000, hours:"08:00–22:00", brk:"없음", off:[], quote:"", tags:["혼밥","포장"], wait:false, party:["1인","2인"], lat:37.5555, lng:126.9225, franchise:true, visited:false, checked:"2026-10-20", naver:{score:4.52,recent:4.5,count:2100}, kakao:{score:3.6,recent:3.6,count:190}},
+  {name:"홍원 반점", area:"연남동", zone:"핵심", cat:"중식", menu:"고추 짬뽕", lunch:11000, dinner:24000, hours:"11:00–21:30", brk:"15:30–17:00", off:[2], quote:"불맛 제대로. 탕수육은 부먹으로 나와요.", tags:["단체석","매운맛"], wait:true, party:["2인","3~4인","5인 이상"], lat:37.5620, lng:126.9255, franchise:false, visited:true, checked:"2026-10-20", naver:{score:4.52,recent:4.31,count:3105}, kakao:{score:4.4,recent:4.0,count:211}},
+  {name:"오븐 앤 바질", area:"합정동", zone:"핵심", cat:"양식", menu:"마르게리타 피자", lunch:16000, dinner:22000, hours:"11:30–22:00", brk:"15:00–17:00", off:[1], quote:"", tags:["데이트"], wait:false, party:["2인","3~4인"], lat:37.5490, lng:126.9150, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.35,recent:4.3,count:876}, kakao:{score:3.7,recent:3.7,count:54}},
+  {name:"솥밥 한 끼", area:"성수동", zone:"핵심", cat:"한식", menu:"전복 솥밥", lunch:16000, dinner:16000, hours:"11:00–21:00", brk:"15:00–17:00", off:[], quote:"", tags:["부모님과","예약 가능"], wait:true, party:["2인","3~4인"], lat:37.5440, lng:127.0560, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.71,recent:4.7,count:1902}, kakao:{score:4.5,recent:4.4,count:133}},
+  {name:"동네 돈카츠", area:"서교동", zone:"핵심", cat:"일식", menu:"로스카츠 정식", lunch:13000, dinner:13000, hours:"11:00–20:30", brk:"15:00–17:00", off:[0], quote:"", tags:["혼밥"], wait:false, party:["1인","2인"], lat:37.5530, lng:126.9200, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.40,recent:4.4,count:654}, kakao:{score:4.0,recent:4.0,count:61}},
+  {name:"마포 숯불갈비", area:"공덕동 먹자골목", zone:"핵심", cat:"한식", menu:"돼지 양념갈비 1인", lunch:12000, dinner:17000, hours:"11:30–23:00", brk:"없음", off:[], quote:"", tags:["회식","단체석"], wait:true, party:["2인","3~4인","5인 이상"], lat:37.5440, lng:126.9520, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.43,recent:4.4,count:2788}, kakao:{score:4.1,recent:4.1,count:176}},
+  {name:"느린 커피", area:"성수동 서울숲길", zone:"핵심", cat:"카페", menu:"핸드드립 + 휘낭시에", lunch:8500, dinner:8500, hours:"10:00–22:00", brk:"없음", off:[], quote:"", tags:["작업하기"], wait:false, party:["1인","2인"], lat:37.5470, lng:127.0420, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.55,recent:4.6,count:1120}, kakao:{score:null,recent:null,count:0}},
+  {name:"쌀국수 사이공", area:"강남역 상가 2층", zone:"핵심", cat:"아시안", menu:"양지 쌀국수", lunch:10500, dinner:10500, hours:"10:30–21:30", brk:"없음", off:[], quote:"", tags:["혼밥","해장"], wait:false, party:["1인","2인","3~4인"], lat:37.4985, lng:127.0270, franchise:false, visited:false, checked:"2026-07-01", naver:{score:4.21,recent:4.2,count:943}, kakao:{score:3.6,recent:3.5,count:98}},
+  {name:"파스타 바 루체", area:"역삼동", zone:"핵심", cat:"양식", menu:"명란 크림 파스타", lunch:14500, dinner:17500, hours:"11:30–22:00", brk:"15:00–17:30", off:[0], quote:"", tags:["데이트","예약 가능"], wait:false, party:["2인","3~4인"], lat:37.5010, lng:127.0370, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.30,recent:4.3,count:512}, kakao:{score:3.8,recent:3.8,count:37}},
+  {name:"양꼬치 초원", area:"건대입구", zone:"핵심", cat:"아시안", menu:"양갈비 + 꿔바로우", lunch:15000, dinner:28000, hours:"12:00–24:00", brk:"없음", off:[], quote:"", tags:["회식","단체석"], wait:true, party:["2인","3~4인","5인 이상"], lat:37.5400, lng:127.0700, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.38,recent:4.4,count:1677}, kakao:{score:4.3,recent:4.3,count:204}},
+  {name:"스시 하루", area:"신논현역", zone:"핵심", cat:"일식", menu:"오마카세", lunch:35000, dinner:80000, hours:"12:00–22:00", brk:"14:30–18:00", off:[1], quote:"", tags:["기념일","예약 필수"], wait:false, party:["1인","2인"], lat:37.5045, lng:127.0250, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.82,recent:4.8,count:731}, kakao:{score:4.7,recent:4.7,count:45}},
+  {name:"한우 다이닝 소반", area:"선릉역", zone:"핵심", cat:"한식", menu:"한우 코스", lunch:48000, dinner:120000, hours:"11:30–22:00", brk:"15:00–17:30", off:[0], quote:"", tags:["부모님과","룸 있음","예약 필수"], wait:false, party:["2인","3~4인"], lat:37.5045, lng:127.0490, franchise:false, visited:false, checked:"2026-10-20", naver:{score:4.66,recent:4.6,count:418}, kakao:{score:4.4,recent:4.4,count:29}}
 ];
 const PARTIES = ["전체","1인","2인","3~4인","5인 이상"];
 const PRICES = [
@@ -211,26 +249,37 @@ const PRICES = [
   {id:"p5", label:"4~5만원", test:w=>w>40000&&w<=50000}
 ];
 const PV_NAME = {naver:"네이버 지도", kakao:"카카오맵"};
-const state = {cat:"전체", party:"전체", price:"all", q:"", sort:"dist", showFr:false, radius:1000,
-  center:null, centerName:"", selected:null, provider:"naver"};
-try{
-  const p=localStorage.getItem("matjip-provider"); if(p==="naver"||p==="kakao") state.provider=p;
-  const r=+localStorage.getItem("matjip-radius"); if(RADII.includes(r)) state.radius=r;
-}catch(e){}
+const keyMissing = k=>!k || /^YOUR_/.test(k);
+const HAS_KEY = {naver:!keyMissing(NAVER_KEY_ID), kakao:!keyMissing(KAKAO_JS_KEY)};
 
 const $ = id=>document.getElementById(id);
 const fmt = n=>n.toLocaleString("ko-KR")+"원";
 const esc = s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const setStatus = html=>{$("status").innerHTML=html;};
 const km = m=>`${m/1000}km`;
+const slug = d=>"p-"+d.name.replace(/\s+/g,"-");
 
-function distM(a,b){
-  const R=6371000, r=x=>x*Math.PI/180;
-  const dLat=r(b.lat-a.lat), dLng=r(b.lng-a.lng);
-  const h=Math.sin(dLat/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLng/2)**2;
-  return 2*R*Math.asin(Math.sqrt(h));
-}
-const fmtDist = m=>m<1000?`${Math.round(m/10)*10}m`:`${(m/1000).toFixed(1)}km`;
+/* ===== 데이터 검사: 빠졌거나 잘못된 값을 화면 위에 알림 ===== */
+(function validate(){
+  const problems=[];
+  const time=/^\d{1,2}:\d{2}[–-]\d{1,2}:\d{2}$/;
+  DATA.forEach(d=>{
+    const p=[];
+    ["name","area","cat","menu"].forEach(k=>{ if(!d[k]) p.push(`${k} 비어 있음`); });
+    if(!(d.zone in CRITERIA.reviewMin)) p.push(`zone "${d.zone}"은(는) 핵심/주거지 중 하나여야 함`);
+    if(!(d.lunch>0)) p.push("lunch 가격 없음");
+    if(!time.test(d.hours||"")) p.push(`hours 형식 "${d.hours}"`);
+    if(d.brk!=="없음"&&!time.test(d.brk||"")) p.push(`brk 형식 "${d.brk}"`);
+    if(!Array.isArray(d.off)) p.push("off(휴무 요일) 없음");
+    if(typeof d.lat!=="number"||typeof d.lng!=="number") p.push("좌표 없음");
+    if(isNaN(new Date(d.checked))) p.push("checked 날짜 형식");
+    if(p.length) problems.push(`<b>${esc(d.name||"(이름 없음)")}</b>: ${p.map(esc).join(", ")}`);
+  });
+  if(problems.length){
+    console.warn("데이터 확인 필요", problems);
+    $("dataWarn").innerHTML=`<p class="warn">데이터에 확인이 필요한 곳이 ${problems.length}곳 있어요.<br>${problems.join("<br>")}</p>`;
+    $("dataWarn").hidden=false;
+  }
+})();
 
 /* ===== 기준 판정 ===== */
 const reviewTotal = d=>(d.naver?.count||0)+(d.kakao?.count||0);
@@ -246,7 +295,31 @@ function failures(d){
 }
 const isMatjip = d=>failures(d).length===0;
 const recentDrop = d=>(d.naver?.recent!=null&&d.naver.recent<CRITERIA.naverMin)||(d.kakao?.recent!=null&&d.kakao.recent<CRITERIA.kakaoMin);
-const isStale = d=>(TODAY-new Date(d.checked))/864e5>CRITERIA.refreshDays;
+const isStale = d=>(Date.now()-new Date(d.checked))/864e5>CRITERIA.refreshDays;
+
+/* ===== 영업 상태 ===== */
+function span(str){
+  const [a,b]=str.split(/[–-]/).map(t=>{const [h,m]=t.split(":").map(Number);return h*60+m;});
+  return [a, b<=a?b+1440:b];
+}
+const inSpan = (now,[a,b])=>(now>=a&&now<b)||(now+1440>=a&&now+1440<b);
+function openState(d, at=new Date()){
+  const now=at.getHours()*60+at.getMinutes();
+  if((d.off||[]).includes(at.getDay())) return {key:"no", label:`오늘 휴무 (${DAYS[at.getDay()]})`};
+  if(!inSpan(now,span(d.hours))) return {key:"no", label:"영업 종료"};
+  if(d.brk&&d.brk!=="없음"&&inSpan(now,span(d.brk))) return {key:"brk", label:`브레이크 ~${d.brk.split(/[–-]/)[1]}`};
+  return {key:"yes", label:"영업 중"};
+}
+const walkMin = m=>Math.max(1,Math.round(m/WALK_M_PER_MIN));
+
+/* ===== 상태 ===== */
+const state = {cat:"전체", party:"전체", price:"all", q:"", sort:"auto", showFr:false, openOnly:false, radius:1000,
+  center:null, centerName:"", selected:null, provider:null, view:"list"};
+try{
+  const p=localStorage.getItem("matjip-provider"); if(HAS_KEY[p]) state.provider=p;
+  const r=+localStorage.getItem("matjip-radius"); if(RADII.includes(r)) state.radius=r;
+}catch(e){}
+if(!state.provider) state.provider = HAS_KEY.kakao?"kakao":HAS_KEY.naver?"naver":null;
 
 /* ===== 필터 UI ===== */
 function chips(rowId, items, key, getId, getLabel){
@@ -258,8 +331,7 @@ function chips(rowId, items, key, getId, getLabel){
     $(rowId).appendChild(b);
   });
 }
-const CATS = ["전체", ...new Set(DATA.map(d=>d.cat))];
-chips("catRow", CATS, "cat", c=>c, c=>c);
+chips("catRow", ["전체", ...new Set(DATA.map(d=>d.cat))], "cat", c=>c, c=>c);
 chips("partyRow", PARTIES, "party", p=>p, p=>p);
 chips("priceRow", PRICES, "price", p=>p.id, p=>p.label);
 RADII.forEach(r=>{
@@ -271,82 +343,103 @@ RADII.forEach(r=>{
 $("q").addEventListener("input",e=>{state.q=e.target.value.trim();render();});
 $("sort").addEventListener("change",e=>{state.sort=e.target.value;render();});
 $("showFr").addEventListener("change",e=>{state.showFr=e.target.checked;render();});
+$("openOnly").addEventListener("change",e=>{state.openOnly=e.target.checked;render();});
+document.querySelectorAll(".viewtabs [data-view]").forEach(b=>b.addEventListener("click",()=>setView(b.dataset.view)));
+function setView(v){
+  state.view=v; document.body.dataset.view=v;
+  document.querySelectorAll(".viewtabs [data-view]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.view===v));
+  if(v==="map") requestAnimationFrame(()=>map?.relayout());
+}
+const isPhone = ()=>matchMedia("(max-width:640px)").matches;
 
-/* 기준을 제외한 조건(위치·필터)만 적용 */
 function baseFiltered(){
   const pt=PRICES.find(p=>p.id===state.price).test;
   const q=state.q.toLowerCase();
-  return DATA.map(d=>({...d, dist: state.center?distM(state.center,d):null}))
+  return DATA.map(d=>({...d, dist: state.center?distM(state.center,d):null, open: openState(d)}))
     .filter(d=>(state.cat==="전체"||d.cat===state.cat)
       &&(state.party==="전체"||d.party.includes(state.party))
       &&pt(d.lunch)
       &&(state.showFr||!d.franchise)
+      &&(!state.openOnly||d.open.key==="yes")
       &&(!state.center||d.dist<=state.radius)
       &&(!q||[d.name,d.menu,d.area,...d.tags].join(" ").toLowerCase().includes(q)));
 }
 function sortList(list){
-  const s=state.sort==="dist"&&!state.center?"naver":state.sort;
   const sc=(d,pv)=>d[pv]?.score ?? -1;
-  const cmp={dist:(a,b)=>a.dist-b.dist,
+  const openRank=d=>d.open.key==="yes"?0:d.open.key==="brk"?1:2;
+  const s = state.sort==="auto" ? (state.center?"dist":"lunchOpen") : state.sort;
+  const cmp={
+    dist:(a,b)=>a.dist-b.dist,
+    lunchOpen:(a,b)=>openRank(a)-openRank(b) || a.lunch-b.lunch || sc(b,"naver")-sc(a,"naver"),
     lunch:(a,b)=>a.lunch-b.lunch || sc(b,"naver")-sc(a,"naver"),
     naver:(a,b)=>sc(b,"naver")-sc(a,"naver"), kakao:(a,b)=>sc(b,"kakao")-sc(a,"kakao"),
     name:(a,b)=>a.name.localeCompare(b.name,"ko")}[s];
   return list.sort(cmp);
 }
-
-function ratingBox(cls,label,r){
-  if(!r||r.score==null) return `<div class="rt ${cls}"><div class="l"><span>${label}</span><b class="none">평점 없음</b></div></div>`;
-  const min = cls==="n"?CRITERIA.naverMin:CRITERIA.kakaoMin;
-  const rec = r.recent!=null?`<small class="${r.recent<min?"down":""}">최근 ${CRITERIA.recentMonths}개월 ${r.recent.toFixed(cls==="n"?2:1)}</small>`:"";
-  return `<div class="rt ${cls}"><div class="l"><span>${label}</span><b>★ ${r.score.toFixed(cls==="n"?2:1)}</b></div>${rec}<small>방문자 리뷰 ${r.count.toLocaleString("ko-KR")}</small></div>`;
+function distM(a,b){
+  const R=6371000, r=x=>x*Math.PI/180;
+  const dLat=r(b.lat-a.lat), dLng=r(b.lng-a.lng);
+  const h=Math.sin(dLat/2)**2+Math.cos(r(a.lat))*Math.cos(r(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
 }
 
+/* ===== 카드 ===== */
 function card(d, near){
   const nUrl="https://map.naver.com/p/search/"+encodeURIComponent(d.name);
   const kUrl="https://map.kakao.com/link/search/"+encodeURIComponent(d.name);
+  const score=(r,cls,label)=>`<span><i class="${cls}">${label}</i><b>${r?.score!=null?"★ "+r.score.toFixed(cls==="n"?2:1):"없음"}</b></span>`;
+  const recent=(r,min,digits)=>r?.recent!=null?`<span class="${r.recent<min?"down":""}">${r.recent.toFixed(digits)}</span>`:"–";
   const badges=[
     d.visited?'<span class="b visit">직접 확인</span>':'',
     recentDrop(d)?'<span class="b down">최근 하락</span>':'',
     d.franchise?'<span class="b fr">프랜차이즈</span>':'',
     d.wait?'<span class="b wait">웨이팅 있음</span>':'',
-    ...d.tags.map(t=>`<span class="b${t==='매운맛'?' hot':''}">${esc(t)}</span>`),
     isStale(d)?'<span class="b stale">갱신 필요</span>':''
   ].join("");
-  const quote = d.visited&&d.quote
-    ? `<p class="quote">${esc(d.quote)}</p>`
-    : `<p class="quote pending">한 줄 평은 직접 가 본 뒤에 적어요.</p>`;
-  return `<article class="card${near?" near":""}${state.selected===d.name?" on":""}" data-name="${esc(d.name)}">
-    <div class="top"><div><h3>${esc(d.name)}</h3><div class="area">${esc(d.area)} · ${esc(d.zone)} 상권 · ${esc(d.cat)} · ${d.party.join("·")}</div></div>
-    ${d.dist!=null?`<span class="dist">${fmtDist(d.dist)}</span>`:""}</div>
+  return `<article class="card${near?" near":""}${state.selected===d.name?" on":""}" id="${esc(slug(d))}" data-name="${esc(d.name)}">
+    <div class="top"><div><h3>${esc(d.name)}</h3><div class="area">${esc(d.area)} · ${esc(d.cat)}</div></div></div>
+    <div class="state"><span class="open ${d.open.key}">${esc(d.open.label)}</span>${d.dist!=null?`<span class="walk">도보 약 ${walkMin(d.dist)}분 · ${d.dist<1000?Math.round(d.dist/10)*10+"m":(d.dist/1000).toFixed(1)+"km"}</span>`:""}</div>
     ${near?`<p class="fails">기준 미달: ${failures(d).map(esc).join(" · ")}</p>`:""}
-    <div class="ratings">${ratingBox("n","네이버",d.naver)}${ratingBox("k","카카오",d.kakao)}</div>
-    <div class="prices"><div><span>점심</span><span class="won">${fmt(d.lunch)}</span></div><div><span>저녁</span><span class="won">${fmt(d.dinner)}</span></div>
-      <div style="grid-column:1/-1"><span>대표</span> ${esc(d.menu)}</div></div>
-    <div class="hours"><span>영업 ${esc(d.hours)}</span><span>브레이크 ${esc(d.brk)}</span></div>
-    ${quote}
-    <div class="badges">${badges}</div>
-    <div class="meta">평점 확인 ${esc(d.checked)}</div>
-    <div class="links"><button type="button" data-focus="${esc(d.name)}">지도에서 보기</button><a href="${nUrl}" target="_blank" rel="noopener">네이버 지도</a><a href="${kUrl}" target="_blank" rel="noopener">카카오맵</a></div>
+    <div class="main"><span>${esc(d.menu)}</span><span class="won"><small>점심</small>${fmt(d.lunch)}</span></div>
+    <div class="scores">${score(d.naver,"n","네이버")}${score(d.kakao,"k","카카오")}</div>
+    ${d.visited&&d.quote?`<p class="quote">${esc(d.quote)}</p>`:""}
+    ${badges?`<div class="badges">${badges}</div>`:""}
+    <details class="detail"><summary>자세히</summary>
+      <dl class="body">
+        <dt>최근 ${CRITERIA.recentMonths}개월</dt><dd class="mono">네이버 ${recent(d.naver,CRITERIA.naverMin,2)} · 카카오 ${recent(d.kakao,CRITERIA.kakaoMin,1)}</dd>
+        <dt>방문자 리뷰</dt><dd class="mono">네이버 ${(d.naver?.count||0).toLocaleString("ko-KR")} · 카카오 ${(d.kakao?.count||0).toLocaleString("ko-KR")}</dd>
+        <dt>저녁</dt><dd class="mono">${fmt(d.dinner)}</dd>
+        <dt>영업</dt><dd>${esc(d.hours)} · 브레이크 ${esc(d.brk)}${d.off.length?` · ${d.off.map(i=>DAYS[i]).join("·")}요일 휴무`:""}</dd>
+        <dt>인원</dt><dd>${d.party.join(" · ")}</dd>
+        <dt>상권</dt><dd>${esc(d.zone)}</dd>
+        ${d.tags.length?`<dt>태그</dt><dd>${d.tags.map(esc).join(" · ")}</dd>`:""}
+        <dt>확인일</dt><dd class="mono">${esc(d.checked)}</dd>
+      </dl>
+    </details>
+    <div class="links"><button type="button" data-focus="${esc(d.name)}">지도에서 보기</button><button type="button" data-share="${esc(d.name)}">링크 복사</button><a href="${nUrl}" target="_blank" rel="noopener">네이버 지도</a><a href="${kUrl}" target="_blank" rel="noopener">카카오맵</a></div>
   </article>`;
 }
 
 function render(){
   for(const [row,key] of [["catRow","cat"],["partyRow","party"],["priceRow","price"]])
     document.querySelectorAll(`#${row} .chip`).forEach(b=>b.setAttribute("aria-pressed", b.dataset.v===state[key]));
-  document.querySelectorAll(".seg [data-pv]").forEach(b=>b.setAttribute("aria-pressed", b.dataset.pv===state.provider));
+  document.querySelectorAll("#pvSeg [data-pv]").forEach(b=>{
+    b.setAttribute("aria-pressed", b.dataset.pv===state.provider);
+    b.disabled=!HAS_KEY[b.dataset.pv]; if(b.disabled) b.title="키가 없어 쓸 수 없어요";
+  });
   document.querySelectorAll("#radiusSeg button").forEach(b=>b.setAttribute("aria-pressed", +b.dataset.r===state.radius));
-  $("showFr").checked=state.showFr;
 
   const base=baseFiltered();
   const list=sortList(base.filter(isMatjip));
   const scope = state.center ? `반경 ${km(state.radius)} 안` : "전체";
-  $("count").textContent = `${scope} 맛집 ${list.length}곳 (등록 ${DATA.length}곳 중 기준 통과 ${DATA.filter(isMatjip).length}곳)`
-    + (state.center?"":" · 위치를 정하면 반경으로 좁혀져요");
+  const openN = list.filter(d=>d.open.key==="yes").length;
+  $("count").textContent = `${scope} 맛집 ${list.length}곳 · 지금 영업 중 ${openN}곳`
+    + (state.center?"":" · 위치를 정하면 걸어갈 수 있는 곳부터 보여요");
 
   let html = list.map(d=>card(d,false)).join("");
   let shown = list;
   if(!list.length){
-    const near = base.filter(d=>!isMatjip(d)).sort((a,b)=>failures(a).length-failures(b).length || (b.naver?.score??0)-(a.naver?.score??0)).slice(0,3);
+    const near = sortList(base.filter(d=>!isMatjip(d))).sort((a,b)=>failures(a).length-failures(b).length).slice(0,3);
     html = `<div class="empty"><b>${scope}에는 기준을 모두 넘은 곳이 없어요.</b><br>${near.length?"기준에 조금 못 미치는 근접 후보를 보여 드릴게요. 반경을 넓히거나 필터를 바꿔 볼 수도 있어요.":"반경을 넓히거나 필터를 '전체'로 바꿔 보세요."}</div>`
       + near.map(d=>card(d,true)).join("");
     shown = near;
@@ -356,45 +449,54 @@ function render(){
   if(map) map.setPlaces(shown, state.selected, n=>focusPlace(n,true));
 }
 function renderStatus(){
-  setStatus(state.center
+  if(!state.provider){ $("status").innerHTML='<span class="hint">지도 키가 없어 목록만 보여 드려요. 파일 위쪽에 네이버나 카카오 키를 넣으면 지도가 켜져요.</span>'; return; }
+  $("status").innerHTML = state.center
     ? `📍 <b>${esc(state.centerName||"선택한 위치")}</b> 기준 반경 ${km(state.radius)}`
-    : '<span class="hint">지도를 클릭하거나 주소를 검색해 기준 위치를 정하세요.</span>');
+    : '<span class="hint">지도를 클릭하거나 주소를 검색해 기준 위치를 정하세요.</span>';
 }
 $("grid").addEventListener("click",e=>{
-  const n=e.target.closest("[data-focus]")?.dataset.focus;
-  if(n) focusPlace(n);
+  const f=e.target.closest("[data-focus]")?.dataset.focus;
+  if(f) return focusPlace(f);
+  const s=e.target.closest("[data-share]")?.dataset.share;
+  if(s) share(s);
 });
+
+function toast(msg){
+  const t=document.createElement("div"); t.className="toast"; t.textContent=msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(),2600);
+}
+function share(name){
+  const d=DATA.find(x=>x.name===name); if(!d) return;
+  const url=location.href.split("#")[0]+"#"+encodeURIComponent(slug(d));
+  const ok=()=>toast("링크를 복사했어요");
+  try{ navigator.clipboard.writeText(url).then(ok,()=>toast(url)); }catch(e){ toast(url); }
+}
 
 $("criteria").innerHTML =
   `<span class="head">맛집 기준</span><span>네이버 ★ <b>${CRITERIA.naverMin.toFixed(1)}</b> 이상</span>`
   + `<span>카카오 ★ <b>${CRITERIA.kakaoMin.toFixed(1)}</b> 이상</span>`
-  + `<span>방문자 리뷰 핵심 상권 <b>${CRITERIA.reviewMin["핵심"]}</b>개 · 주거지 <b>${CRITERIA.reviewMin["주거지"]}</b>개 이상</span>`
-  + `<span>최근 ${CRITERIA.recentMonths}개월 평점이 떨어지면 '최근 하락' 표시</span>`;
+  + `<span>방문자 리뷰 핵심 상권 <b>${CRITERIA.reviewMin["핵심"]}</b>개 · 주거지 <b>${CRITERIA.reviewMin["주거지"]}</b>개 이상</span>`;
 
 /* ===== 지도 공통 ===== */
-const COLOR = {ink:"#1C2320", chili:"#C8281E"};
 function pinEl(d, on, pv, onClick){
-  const el=document.createElement("div");
+  const el=document.createElement("button");
+  el.type="button";
   const s=d[pv]?.score;
+  el.className=`pin${on?" on":""}${isMatjip(d)?"":" near"}`;
   el.textContent=`${d.name} ${s!=null?"★"+s.toFixed(1):""}`;
-  el.style.cssText=`white-space:nowrap;font:13px 'Gowun Dodum',sans-serif;cursor:pointer;background:${on?COLOR.chili:"#fff"};color:${on?"#fff":COLOR.ink};border:1.5px ${isMatjip(d)?"solid":"dashed"} ${COLOR.ink};border-radius:999px;padding:2px 10px;box-shadow:0 1px 3px rgba(0,0,0,.3)`;
+  el.setAttribute("aria-label",`${d.name} 카드 보기`);
   el.addEventListener("click",ev=>{ev.stopPropagation();onClick(d.name);});
   return el;
 }
-function centerDot(){
-  const el=document.createElement("div");
-  el.style.cssText="width:18px;height:18px;border-radius:50%;background:#1C2320;border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)";
-  return el;
-}
+function centerDot(){ const el=document.createElement("div"); el.className="centerdot"; return el; }
 function loadScript(src){
   return new Promise((ok,fail)=>{const s=document.createElement("script");s.src=src;s.onload=ok;s.onerror=fail;document.head.appendChild(s);});
 }
-const keyMissing = k=>!k || /^YOUR_/.test(k);
+const CIRCLE = "#C8281E";
 
 /* ===== 네이버 어댑터 ===== */
 const NaverMap = {
   async init(el,onClick){
-    if(keyMissing(NAVER_KEY_ID)) throw {msg:"네이버 지도 Client ID가 아직 없어요.<br>파일 위쪽 <code>NAVER_KEY_ID</code>에 넣어 주세요."};
     window.navermap_authFailure=()=>{el.innerHTML='<div class="mapmsg">네이버 지도 인증에 실패했어요. 콘솔에 이 페이지 주소가 Web 서비스 URL로 등록돼 있는지 확인해 주세요.</div>';};
     if(!window.naver?.maps) await loadScript(`https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${encodeURIComponent(NAVER_KEY_ID)}&submodules=geocoder`);
     el.innerHTML="";
@@ -407,7 +509,7 @@ const NaverMap = {
     const N=naver.maps, p=new N.LatLng(lat,lng);
     if(!this.dot){
       this.dot=new N.Marker({position:p,zIndex:200,icon:{content:centerDot(),anchor:new N.Point(9,9)}});
-      this.circle=new N.Circle({center:p,radius,strokeColor:COLOR.chili,strokeWeight:2,strokeOpacity:.8,fillColor:COLOR.chili,fillOpacity:.08,clickable:false});
+      this.circle=new N.Circle({center:p,radius,strokeColor:CIRCLE,strokeWeight:2,strokeOpacity:.8,fillColor:CIRCLE,fillOpacity:.08,clickable:false});
     }
     this.dot.setPosition(p); this.circle.setCenter(p); this.circle.setRadius(radius);
     this.dot.setMap(this.m); this.circle.setMap(this.m);
@@ -424,6 +526,7 @@ const NaverMap = {
     });
   },
   panTo(lat,lng){ this.m.panTo(new naver.maps.LatLng(lat,lng)); },
+  relayout(){ try{ this.m?.autoResize(); }catch(e){} },
   search(q,cb){
     if(!naver.maps.Service) return cb(null);
     naver.maps.Service.geocode({query:q},(st,res)=>{
@@ -443,7 +546,6 @@ const NaverMap = {
 /* ===== 카카오 어댑터 ===== */
 const KakaoMap = {
   async init(el,onClick){
-    if(keyMissing(KAKAO_JS_KEY)) throw {msg:"카카오맵 JavaScript 키가 아직 없어요.<br>파일 위쪽 <code>KAKAO_JS_KEY</code>에 넣어 주세요."};
     if(!window.kakao?.maps){
       await loadScript(`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${encodeURIComponent(KAKAO_JS_KEY)}&libraries=services&autoload=false`);
       await new Promise(r=>kakao.maps.load(r));
@@ -460,7 +562,7 @@ const KakaoMap = {
     const K=kakao.maps, p=new K.LatLng(lat,lng);
     if(!this.dot){
       this.dot=new K.CustomOverlay({content:centerDot(),zIndex:200});
-      this.circle=new K.Circle({radius,strokeWeight:2,strokeColor:COLOR.chili,strokeOpacity:.8,fillColor:COLOR.chili,fillOpacity:.08});
+      this.circle=new K.Circle({radius,strokeWeight:2,strokeColor:CIRCLE,strokeOpacity:.8,fillColor:CIRCLE,fillOpacity:.08});
     }
     this.dot.setPosition(p); this.circle.setPosition(p); this.circle.setRadius(radius);
     this.dot.setMap(this.m); this.circle.setMap(this.m);
@@ -477,6 +579,7 @@ const KakaoMap = {
     });
   },
   panTo(lat,lng){ this.m.panTo(new kakao.maps.LatLng(lat,lng)); },
+  relayout(){ try{ this.m?.relayout(); }catch(e){} },
   search(q,cb){
     const S=kakao.maps.services.Status;
     this.places.keywordSearch(q,(res,st)=>{
@@ -499,8 +602,10 @@ let map=null;
 async function useProvider(pv){
   if(map){ map.destroy(); map=null; }
   state.provider=pv;
+  const box=$("mapbox"), el=$("map");
+  if(!pv){ box.classList.add("nomap"); render(); return; }
+  box.classList.remove("nomap");
   try{ localStorage.setItem("matjip-provider",pv); }catch(e){}
-  const el=$("map");
   el.innerHTML=`<div class="mapmsg">${PV_NAME[pv]}를 불러오는 중…</div>`;
   render();
   const adapter = pv==="naver"?NaverMap:KakaoMap;
@@ -514,16 +619,15 @@ async function useProvider(pv){
     if(state.center) map.setCenter(state.center.lat,state.center.lng,state.radius);
     render();
   }catch(err){
-    el.innerHTML=`<div class="mapmsg"><div>${err?.msg||`${PV_NAME[pv]}를 불러오지 못했어요. 키와 등록한 도메인을 확인해 주세요.`}<br><span class="hint">지도 없이도 아래 목록과 필터는 그대로 쓸 수 있어요.</span></div></div>`;
+    el.innerHTML=`<div class="mapmsg"><div>${PV_NAME[pv]}를 불러오지 못했어요. 키와 등록한 도메인을 확인해 주세요.<br><span class="hint">지도 없이도 목록과 필터는 그대로 쓸 수 있어요.</span></div></div>`;
   }
 }
-document.querySelectorAll(".seg [data-pv]").forEach(b=>b.addEventListener("click",()=>{
-  if(b.dataset.pv!==state.provider) useProvider(b.dataset.pv);
+document.querySelectorAll("#pvSeg [data-pv]").forEach(b=>b.addEventListener("click",()=>{
+  if(b.dataset.pv!==state.provider&&HAS_KEY[b.dataset.pv]) useProvider(b.dataset.pv);
 }));
 
 function setCenter(lat,lng,name){
   state.center={lat,lng}; state.centerName=name; state.selected=null;
-  if(state.sort!=="dist"){ state.sort="dist"; $("sort").value="dist"; }
   map?.setCenter(lat,lng,state.radius);
   render();
 }
@@ -534,11 +638,13 @@ function clearCenter(){
 function focusPlace(name,fromMap){
   state.selected=name;
   const d=DATA.find(x=>x.name===name);
+  if(!fromMap&&isPhone()&&map) setView("map");
   if(map&&d&&!fromMap) map.panTo(d.lat,d.lng);
+  if(fromMap&&isPhone()) setView("list");
   render();
-  const el=document.querySelector(`.card[data-name="${CSS.escape(name)}"]`);
+  const el=document.getElementById(slug(d));
   if(fromMap&&el) el.scrollIntoView({behavior:"smooth",block:"center"});
-  else $("map").scrollIntoView({behavior:"smooth",block:"center"});
+  else if(map) $("map").scrollIntoView({behavior:"smooth",block:"center"});
 }
 
 $("locForm").addEventListener("submit",e=>{
@@ -546,23 +652,38 @@ $("locForm").addEventListener("submit",e=>{
   const q=$("addr").value.trim(); if(!q) return;
   const m=q.match(/^\s*(3[3-9]\.\d+)\s*,\s*(12[4-9]\.\d+|13[0-2]\.\d+)\s*$/);
   if(m){ setCenter(+m[1],+m[2],"입력한 좌표"); return; }
-  if(!map){ setStatus('<span class="hint">지도가 연결돼야 주소 검색을 할 수 있어요.</span>'); return; }
+  if(!map){ $("status").innerHTML='<span class="hint">지도가 연결돼야 주소 검색을 할 수 있어요.</span>'; return; }
   map.search(q,r=>{
     if(r) setCenter(r.lat,r.lng,r.name);
-    else setStatus(`<span class="hint">'${esc(q)}' 위치를 찾지 못했어요. ${state.provider==="naver"?"네이버 지도는 주소로만 검색돼요. 도로명·지번 주소로 다시 검색하거나 ":""}지도를 직접 클릭해 주세요.</span>`);
+    else $("status").innerHTML=`<span class="hint">'${esc(q)}' 위치를 찾지 못했어요. ${state.provider==="naver"?"네이버 지도는 주소로만 검색돼요. 도로명·지번 주소로 다시 검색하거나 ":""}지도를 직접 클릭해 주세요.</span>`;
   });
 });
 $("myLoc").addEventListener("click",()=>{
-  if(!navigator.geolocation){ setStatus('<span class="hint">이 브라우저에서는 내 위치를 쓸 수 없어요.</span>'); return; }
+  if(!navigator.geolocation){ $("status").innerHTML='<span class="hint">이 브라우저에서는 내 위치를 쓸 수 없어요.</span>'; return; }
   navigator.geolocation.getCurrentPosition(
     p=>setCenter(p.coords.latitude,p.coords.longitude,"내 위치"),
-    ()=>setStatus('<span class="hint">위치 권한이 없어 내 위치를 가져오지 못했어요. 지도를 클릭해 주세요.</span>'),
+    ()=>{$("status").innerHTML='<span class="hint">위치 권한이 없어 내 위치를 가져오지 못했어요. 지도를 클릭해 주세요.</span>';},
     {enableHighAccuracy:true,timeout:8000});
 });
 $("clearLoc").addEventListener("click",clearCenter);
 
+/* 공유 링크(#p-가게이름)로 들어오면 그 가게를 펼쳐서 보여 줌 */
+function openFromHash(){
+  const id=decodeURIComponent(location.hash.slice(1)); if(!id) return;
+  const d=DATA.find(x=>slug(x)===id); if(!d) return;
+  if(d.franchise) state.showFr=true, $("showFr").checked=true;
+  state.selected=d.name; render();
+  const el=document.getElementById(id);
+  if(el){ el.querySelector("details")?.setAttribute("open",""); el.scrollIntoView({block:"center"}); }
+}
+window.addEventListener("hashchange",openFromHash);
+
+setView("list");
 render();
+openFromHash();
 useProvider(state.provider);
+// 영업 상태를 1분마다 갱신 (펼쳐 둔 카드가 있으면 접히지 않게 건너뜀)
+setInterval(()=>{ if(!document.querySelector("#grid details[open]")) render(); }, 60000);
 </script>
 </body>
 </html>
