@@ -12,7 +12,7 @@
 :root{
   --bg:#F3F5F2; --surface:#FFFFFF; --ink:#1C2320; --muted:#5E6A64; --line:#D9E0DB;
   --chili:#C8281E; --chili-soft:#FBE3E0; --mustard:#E0A526; --mustard-soft:#FBF0D6;
-  --good:#1F7A4D; --good-soft:#DDF1E6; --star:#E0A526;
+  --good:#1F7A4D; --good-soft:#DDF1E6; --star:#E0A526; --info:#2F5D8A; --info-soft:#E2ECF6;
   --display:"Black Han Sans","Noto Sans KR",sans-serif;
   --body:"Gowun Dodum","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,monospace;
@@ -21,7 +21,7 @@
 @media (prefers-color-scheme:dark){:root{
   --bg:#141917; --surface:#1D2421; --ink:#ECF1EE; --muted:#9AA8A1; --line:#2F3934;
   --chili:#F0564A; --chili-soft:#3A1F1C; --mustard:#E8B649; --mustard-soft:#3A3120;
-  --good:#5CCB94; --good-soft:#1C3328; --star:#F2C230; color-scheme:dark}}
+  --good:#5CCB94; --good-soft:#1C3328; --star:#F2C230; --info:#8DB8E8; --info-soft:#1C2A38; color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.6;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
@@ -115,7 +115,14 @@ input[type=search],select,textarea{font:inherit;font-size:15px;background:var(--
 .b{font-size:13px;padding:2px 9px;border-radius:4px;background:var(--bg);color:var(--muted)}
 .b.chain{background:var(--mustard-soft);color:var(--ink)}
 .b.mine{background:var(--good-soft);color:var(--good);font-weight:700}
-.b.low{background:var(--chili-soft);color:var(--chili)}
+.b.low,.b.closed{background:var(--chili-soft);color:var(--chili)}
+.b.old{background:var(--bg);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.b.good{background:var(--good-soft);color:var(--good)}
+.b.hy{background:var(--info-soft);color:var(--info)}
+.pub dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:14px}
+.pub dt{color:var(--muted)} .pub dd{margin:0;min-width:0}
+.pub ul{margin:0;padding-left:18px}
+.pub .won{font-family:var(--mono);font-size:13px}
 .my{display:flex;flex-direction:column;gap:6px}
 .stars{display:flex;align-items:center;gap:2px}
 .stars span{font-size:13px;color:var(--muted);margin-right:6px}
@@ -221,6 +228,7 @@ body.sheet-open{overflow:hidden}
       <select id="sort" aria-label="정렬">
         <option value="dist">가까운 순</option>
         <option value="my">내 별점 순</option>
+        <option value="old">오래된 가게 순</option>
         <option value="name">이름순</option>
       </select>
       <label class="check"><input type="checkbox" id="openOnly"> 지금 영업 중만</label>
@@ -320,7 +328,7 @@ const passes = p=>failures(p).length===0;
 /* ===== 상태 ===== */
 const state = {places:[], loading:false, error:"", center:null, centerName:"", radius:1000,
   cat:"전체", q:"", sort:"dist", openOnly:false, catPlaces:{}, selected:null,
-  crit:{chain:CRITERIA.excludeChain, phone:CRITERIA.needPhone, road:CRITERIA.needRoadAddr, mine:false},
+  crit:{chain:CRITERIA.excludeChain, phone:CRITERIA.needPhone, road:CRITERIA.needRoadAddr, mine:false, closed:true, old:false, good:false, hy:false},
   provider:null, view:"list"};
 try{
   const c=JSON.parse(localStorage.getItem("matjip-crit")||"null"); if(c) for(const k in state.crit) if(typeof c[k]==="boolean") state.crit[k]=c[k];
@@ -369,6 +377,8 @@ async function loadPlaces(){
     const seen=new Set();
     state.places=all.map(toPlace).filter(p=>!seen.has(p.id)&&seen.add(p.id));
     state.capped = all.length>=MAX_PAGES*15;
+    await attachPublic(state.places);
+    if(seq!==searchSeq) return;
   }catch(e){
     state.places=[];
     state.error = HAS_KEY.kakao ? "카카오 장소 정보를 불러오지 못했어요. 네트워크와 키 설정을 확인해 주세요." : "카카오 JavaScript 키가 없어 음식점 정보를 불러올 수 없어요.";
@@ -394,7 +404,10 @@ async function loadCat(cat){
       else places.keywordSearch(cat,cb,{...opts, category_group_code:CRITERIA.category});
     });
     if(seq!==searchSeq) return;
-    state.catPlaces[cat]=all.map(toPlace).map(p=>cat==="카페"?{...p, top:"카페", detail:p.detail||""}:p).filter(p=>p.top===cat);
+    const got=all.map(toPlace).map(p=>cat==="카페"?{...p, top:"카페", detail:p.detail||""}:p).filter(p=>p.top===cat);
+    await attachPublic(got);
+    if(seq!==searchSeq) return;
+    state.catPlaces[cat]=got;
   }catch(e){ state.catPlaces[cat]=[]; }
   render();
 }
@@ -405,10 +418,105 @@ function pool(){
   return [...state.places, ...extra.filter(p=>!seen.has(p.id))];
 }
 
+/* ===== 공공데이터 (data/public, scripts/build-public-data.mjs 로 생성) =====
+   인허가(영업상태·인허가일자), 착한가격업소, 위생등급을 가게 이름 + 주소(또는 좌표)로 카카오 결과와 맞춥니다. */
+const OLD_YEARS = 10;
+let PUB=null; const SHARDS={};
+const SIDO={서울특별시:"서울",부산광역시:"부산",대구광역시:"대구",인천광역시:"인천",광주광역시:"광주",대전광역시:"대전",울산광역시:"울산",세종특별자치시:"세종",경기도:"경기",강원특별자치도:"강원",강원도:"강원",충청북도:"충북",충청남도:"충남",전북특별자치도:"전북",전라북도:"전북",전라남도:"전남",경상북도:"경북",경상남도:"경남",제주특별자치도:"제주"};
+function normAddr(a){ if(!a) return ""; const t=a.replace(/\(.*?\)/g," ").split(",")[0].replace(/\s+/g," ").trim().split(" "); t[0]=SIDO[t[0]]||t[0]; return t.join(" "); }
+function roadKey(a){ const m=normAddr(a).match(/^(\S+ \S+(?: \S+구)?) .*?(\S+(?:로|길)(?:\d+(?:번)?길)?) (\d+(?:-\d+)?)/); return m?`${m[1]}|${m[2]}|${m[3]}`:""; }
+function jibunKey(a){ const m=normAddr(a).match(/^(\S+ \S+(?: \S+구)?) .*?(\S+(?:동|가|리|읍|면)) (?:산\s?)?(\d+(?:-\d+)?)/); return m?`${m[1]}|${m[2]}|${m[3]}`:""; }
+const shardOf=a=>{ const t=normAddr(a).split(" "); return t.length>=2?`${t[0]} ${t[1]}`:""; };
+const normName=n=>(n||"").replace(/\(.*?\)|㈜|주식회사/g,"").replace(/[\s·.,'"&\-_/]/g,"").toLowerCase();
+function sameName(a,b){ const A=normName(a),B=normName(b); if(!A||!B) return false; if(A===B) return true; return Math.min(A.length,B.length)>=2&&(A.includes(B)||B.includes(A)); }
+function meters(a,b,c,d){ const R=6371000,r=Math.PI/180,x=(d-b)*r*Math.cos((a+c)/2*r),y=(c-a)*r; return Math.hypot(x,y)*R; }
+
+async function loadPubIndex(){
+  try{ const r=await fetch("data/public/index.json",{cache:"no-cache"}); if(r.ok){ const j=await r.json(); if(j?.shards?.length) PUB=j; } }catch(e){}
+  if(PUB&&state.places.length){ await attachPublic(state.places); render(); renderSheet(); }
+  else render();
+}
+function indexShard(j){
+  const idx={};
+  for(const kind of ["biz","good","hy"]){
+    const rk={}, jk={}, grid={}, list=j[kind]||[];
+    for(const r of list){
+      if(r.rk) (rk[r.rk]||=[]).push(r);
+      if(r.jk) (jk[r.jk]||=[]).push(r);
+      if(r.la!=null&&r.lo!=null) (grid[`${Math.round(r.la*1000)},${Math.round(r.lo*1000)}`]||=[]).push(r);
+    }
+    idx[kind]={rk,jk,grid};
+  }
+  return idx;
+}
+async function ensureShards(keys){
+  await Promise.all([...new Set(keys)].filter(k=>k&&PUB.shards.includes(k)&&!(k in SHARDS)).map(async k=>{
+    SHARDS[k]=null;
+    try{ const r=await fetch(`data/public/shards/${encodeURIComponent(k.replace(/\s+/g,"_"))}.json`); if(r.ok) SHARDS[k]=indexShard(await r.json()); }catch(e){}
+  }));
+}
+function findIn(ix,p){
+  if(!ix) return [];
+  const byAddr=[...(ix.rk[roadKey(p.road)]||[]), ...(ix.jk[jibunKey(p.addr)]||[])].filter(r=>sameName(r.n,p.name));
+  if(byAddr.length) return byAddr;
+  const out=[], ci=Math.round(p.lat*1000), cj=Math.round(p.lng*1000);
+  for(let i=-1;i<=1;i++) for(let j=-1;j<=1;j++) for(const r of ix.grid[`${ci+i},${cj+j}`]||[])
+    if(meters(p.lat,p.lng,r.la,r.lo)<=60&&sameName(r.n,p.name)) out.push(r);
+  return out;
+}
+async function attachPublic(list){
+  if(!PUB||!list.length) return;
+  await ensureShards(list.map(p=>shardOf(p.addr||p.road)));
+  for(const p of list){
+    const sh=SHARDS[shardOf(p.addr||p.road)];
+    if(!sh){ p.pub=null; continue; }
+    const biz=findIn(sh.biz,p), open=biz.filter(r=>r.s===1).sort((a,b)=>(a.d||"9").localeCompare(b.d||"9"));
+    const closed=biz.filter(r=>r.s===0).sort((a,b)=>(b.c||"").localeCompare(a.c||""));
+    p.pub={
+      biz: open[0]?{open:true,since:open[0].d}:closed[0]?{open:false,since:closed[0].d,closedAt:closed[0].c}:null,
+      good: findIn(sh.good,p)[0]||null,
+      hy: findIn(sh.hy,p).sort((a,b)=>b.g-a.g)[0]||null
+    };
+  }
+}
+const ymdDot=d=>d&&d.length>=8?`${d.slice(0,4)}.${d.slice(4,6)}.${d.slice(6,8)}`:"";
+function yearsOf(p){ const d=p.pub?.biz?.open&&p.pub.biz.since; if(!d) return null; const t=new Date(+d.slice(0,4),+d.slice(4,6)-1,+d.slice(6,8)); return Math.floor((Date.now()-t)/(365.25*864e5)); }
+const isClosed=p=>p.pub?.biz&&!p.pub.biz.open;
+const HY_LABEL={3:"매우 우수",2:"우수",1:"좋음"};
+function pubOK(p){
+  const C=state.crit;
+  if(!PUB) return true;
+  if(C.closed&&isClosed(p)) return false;
+  if(C.old&&!((yearsOf(p)??0)>=OLD_YEARS)) return false;
+  if(C.good&&!p.pub?.good) return false;
+  if(C.hy&&!p.pub?.hy) return false;
+  return true;
+}
+function pubBadges(p){
+  if(!p.pub) return "";
+  const y=yearsOf(p);
+  return [
+    isClosed(p)?`<span class="b closed">폐업 신고${p.pub.biz.closedAt?` ${ymdDot(p.pub.biz.closedAt).slice(0,7)}`:""}</span>`:"",
+    y!=null&&y>=OLD_YEARS?`<span class="b old">${y}년 된 가게</span>`:"",
+    p.pub.good?'<span class="b good">착한가격</span>':"",
+    p.pub.hy?`<span class="b hy">위생 ${"★".repeat(p.pub.hy.g)} ${HY_LABEL[p.pub.hy.g]}</span>`:""
+  ].join("");
+}
+function pubSection(p){
+  if(!PUB) return "";
+  const b=p.pub?.biz, g=p.pub?.good, h=p.pub?.hy, y=yearsOf(p);
+  const won=v=>v?`${(+v).toLocaleString("ko-KR")}원`:"";
+  return `<div class="sec pub"><h4>공공데이터</h4><dl>
+    <dt>영업 신고</dt><dd>${b?(b.open?`영업 중 · ${ymdDot(b.since)} 인허가${y!=null?` (업력 ${y}년)`:""}`:`폐업 신고 ${ymdDot(b.closedAt)}`):"일치하는 기록을 찾지 못했어요"}</dd>
+    <dt>착한가격</dt><dd>${g?(g.m?.length?`<ul>${g.m.map(([m,v])=>`<li>${esc(m)} <span class="won">${won(v)}</span></li>`).join("")}</ul>`:"지정 업소"):"지정 기록 없음"}</dd>
+    <dt>위생등급</dt><dd>${h?`${"★".repeat(h.g)} ${HY_LABEL[h.g]}${h.d?` · ${ymdDot(h.d)} 지정`:""}`:"지정 기록 없음"}</dd>
+  </dl><span class="hint">${esc(PUB.updated)} 기준 · 행정안전부·지자체·식품의약품안전처 공공데이터를 가게 이름과 주소로 맞춘 결과라 틀릴 수 있어요.</span></div>`;
+}
+
 /* ===== 목록 ===== */
 function visible(){
   const q=state.q.toLowerCase();
-  return pool().filter(p=>passes(p)
+  return pool().filter(p=>passes(p)&&pubOK(p)
     &&(!state.crit.chain||!p.branch)
     &&(!state.crit.mine||isMine(p))
     &&(!state.openOnly||openState(p)?.key==="yes")
@@ -419,6 +527,7 @@ function sortList(list){
   const st=p=>myOf(p.id)?.stars||0;
   const cmp={dist:(a,b)=>(a.dist??1e9)-(b.dist??1e9),
     my:(a,b)=>st(b)-st(a)||(a.dist??1e9)-(b.dist??1e9),
+    old:(a,b)=>(yearsOf(b)??-1)-(yearsOf(a)??-1)||(a.dist??1e9)-(b.dist??1e9),
     name:(a,b)=>a.name.localeCompare(b.name,"ko")}[state.sort];
   return list.sort(cmp);
 }
@@ -451,6 +560,7 @@ function card(p){
   const badges=[
     isMine(p)?'<span class="b mine">내 맛집</span>':'',
     my?.stars&&!isMine(p)?`<span class="b low">내 별점 ${my.stars}</span>`:'',
+    pubBadges(p),
     p.branch?`<span class="b chain">체인점 (${esc(p.branch)})</span>`:''
   ].join("");
   return `<article class="card${state.selected===p.id?" on":""}${isMine(p)?" mine":""}" id="k-${esc(p.id)}" data-open="${esc(p.id)}" role="button" tabindex="0" aria-haspopup="dialog" aria-label="${esc(p.name)} 메뉴 열기">
@@ -469,6 +579,7 @@ function sheetHtml(p){
   const kRoute=`https://map.kakao.com/link/to/${encodeURIComponent(p.name)},${p.lat},${p.lng}`;
   const badges=[
     isMine(p)?'<span class="b mine">내 맛집</span>':'',
+    pubBadges(p),
     p.branch?`<span class="b chain">체인점 (${esc(p.branch)})</span>`:''
   ].join("");
   return `<div class="shead"><div><h2 id="sheetTitle">${esc(p.name)}</h2>
@@ -491,6 +602,7 @@ function sheetHtml(p){
       ${my?.stars?`<textarea class="memo" rows="2" data-memo="${esc(p.id)}" placeholder="한 줄 메모 (예: 순대국 특, 점심 웨이팅 10분)" aria-label="${esc(p.name)} 메모">${esc(my.memo||"")}</textarea>`:'<span class="hint">별점을 남기면 메모도 쓸 수 있어요.</span>'}
     </div>
     <div class="sec"><h4>영업시간</h4>${hoursForm(p)}</div>
+    ${pubSection(p)}
   </div>`;
 }
 
@@ -502,7 +614,7 @@ function render(){
   document.querySelectorAll("#radiusSeg button").forEach(b=>b.setAttribute("aria-pressed", +b.dataset.r===state.radius));
 
   // 종류 칩: 불러온 결과에서 만들기
-  const keep=p=>passes(p)&&(!state.crit.chain||!p.branch)&&(!state.crit.mine||isMine(p))&&(!state.openOnly||openState(p)?.key==="yes");
+  const keep=p=>passes(p)&&pubOK(p)&&(!state.crit.chain||!p.branch)&&(!state.crit.mine||isMine(p))&&(!state.openOnly||openState(p)?.key==="yes");
   const base=state.places.filter(keep);
   const counts={}; base.forEach(p=>counts[p.top]=(counts[p.top]||0)+1);
   for(const [c,arr] of Object.entries(state.catPlaces)) if(Array.isArray(arr)){
@@ -521,6 +633,10 @@ function render(){
     + `<button type="button" class="crit" data-crit="phone" aria-pressed="${C.phone}">전화번호 등록된 곳만</button>`
     + `<button type="button" class="crit" data-crit="road" aria-pressed="${C.road}">도로명 주소 등록된 곳만</button>`
     + `<button type="button" class="crit" data-crit="mine" aria-pressed="${C.mine}">내 맛집만 (직접 가서 ★${CRITERIA.mineMin} 이상)</button>`
+    + (PUB?`<button type="button" class="crit" data-crit="closed" aria-pressed="${C.closed}">폐업 신고된 곳 제외</button>`
+      + `<button type="button" class="crit" data-crit="old" aria-pressed="${C.old}">${OLD_YEARS}년 넘은 가게만</button>`
+      + `<button type="button" class="crit" data-crit="good" aria-pressed="${C.good}">착한가격업소만</button>`
+      + `<button type="button" class="crit" data-crit="hy" aria-pressed="${C.hy}">위생등급 받은 곳만</button>`:"")
     + `<span class="tip hint">눌러서 켜고 끌 수 있어요</span>`;
   if(!state.center){
     $("count").textContent="";
@@ -534,6 +650,7 @@ function render(){
   }else{
     $("count").textContent=`카카오맵 음식점 ${total}곳${state.capped?"(가까운 순 최대치)":""} 중 ${list.length}곳 표시`
       +(C.chain?` · 체인점 ${chainN}곳 숨김`:"")+(failN?` · 정보 미등록 ${failN}곳 제외`:"")
+      +(PUB&&C.closed?((n=>n?` · 폐업 신고 ${n}곳 숨김`:"")(state.places.filter(isClosed).length)):"")
       +(state.openOnly?" · 영업시간을 입력한 곳만 판단해요":"");
     $("grid").innerHTML=list.length?list.map(card).join(""):
       `<div class="empty"><b>조건에 맞는 가게가 없어요.</b><br>${state.openOnly?"'지금 영업 중만'은 영업시간을 입력한 가게에만 적용돼요. ":""}${state.crit.mine?"'내 맛집만'을 끄거나 ":""}반경을 넓히거나 종류를 '전체'로 바꿔 보세요.</div>`;
@@ -806,6 +923,7 @@ document.querySelectorAll("#pvSeg [data-pv]").forEach(b=>b.addEventListener("cli
 
 setView("list");
 render();
+loadPubIndex();
 useProvider(state.provider);
 // 영업 상태를 1분마다 갱신 (입력 중이거나 펼쳐 둔 폼이 있으면 건너뜀)
 setInterval(()=>{ if(!sheetId) render(); }, 60000);
