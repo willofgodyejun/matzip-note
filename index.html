@@ -60,6 +60,9 @@ button:focus-visible,select:focus-visible,input:focus-visible,a:focus-visible{ou
 input[type=search],select{font:inherit;font-size:15px;background:var(--surface);color:var(--ink);border:1.5px solid var(--line);border-radius:6px;padding:7px 12px}
 .tools input{flex:1 1 220px;min-width:0}
 .count{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.criteria{display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
+.criteria span{border:1px solid var(--line);border-radius:4px;padding:2px 9px;color:var(--muted);background:var(--surface)}
+.criteria span b{font-family:var(--mono);font-weight:500;color:var(--ink)}
 
 /* 카드 */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
@@ -99,7 +102,7 @@ input[type=search],select{font:inherit;font-size:15px;background:var(--surface);
   <header>
     <div>
       <h1 class="sign">골목 <em>맛집</em> 수첩</h1>
-      <p class="tag">지도에서 위치를 찍으면 반경 3km 안의 맛집을 네이버·카카오 평점과 함께 보여 드려요.</p>
+      <p class="tag">네이버 평점 4.5 이상, 카카오 평점 3.0 이상, 리뷰 합계 500개 이상인 곳만 맛집으로 골랐어요. 지도에서 위치를 찍으면 반경 3km 안으로 좁혀 드려요.</p>
     </div>
     <span class="note">초안 · 가게 정보와 평점은 예시 데이터</span>
   </header>
@@ -133,6 +136,7 @@ input[type=search],select{font:inherit;font-size:15px;background:var(--surface);
         <option value="name">이름순</option>
       </select>
     </div>
+    <div class="criteria" id="criteria"></div>
     <div class="count" id="count"></div>
   </section>
 
@@ -141,6 +145,12 @@ input[type=search],select{font:inherit;font-size:15px;background:var(--surface);
 
 <script>
 const RADIUS_M = 3000;
+/* 맛집 기준: 세 조건을 모두 만족하는 가게만 목록과 지도에 나옵니다. 숫자를 바꾸면 기준이 바뀝니다. */
+const CRITERIA = { naverMin: 4.5, kakaoMin: 3.0, reviewMin: 500 }; // reviewMin: 네이버 + 카카오 리뷰 수 합계
+const reviewTotal = d => (d.naver?.count||0) + (d.kakao?.count||0);
+const isMatjip = d => d.naver?.score!=null && d.naver.score>=CRITERIA.naverMin
+  && d.kakao?.score!=null && d.kakao.score>=CRITERIA.kakaoMin
+  && reviewTotal(d)>=CRITERIA.reviewMin;
 /* 예시 데이터. 좌표는 서울 홍대·강남·성수 근처에 임의로 찍었고, 평점도 예시 값입니다.
    naver / kakao: { score: 5점 만점 평점(없으면 null), count: 리뷰·평가 수 } */
 const DATA = [
@@ -167,7 +177,7 @@ const PRICES = [
   {id:"p4", label:"3~4만원", test:w=>w>30000&&w<=40000},
   {id:"p5", label:"4~5만원", test:w=>w>40000&&w<=50000}
 ];
-const CATS = ["전체", ...new Set(DATA.map(d=>d.cat))];
+const CATS = ["전체", ...new Set(DATA.filter(isMatjip).map(d=>d.cat))];
 const PV_NAME = {naver:"네이버 지도", kakao:"카카오맵"};
 const state = {cat:"전체", party:"전체", price:"all", q:"", sort:"dist", center:null, centerName:"", selected:null, provider:"naver"};
 try{ const p=localStorage.getItem("matjip-provider"); if(p==="naver"||p==="kakao") state.provider=p; }catch(e){}
@@ -205,7 +215,7 @@ $("sort").addEventListener("change",e=>{state.sort=e.target.value;render();});
 function filtered(){
   const pt=PRICES.find(p=>p.id===state.price).test;
   const q=state.q.toLowerCase();
-  const list=DATA.map(d=>({...d, dist: state.center?distM(state.center,d):null}))
+  const list=DATA.filter(isMatjip).map(d=>({...d, dist: state.center?distM(state.center,d):null}))
     .filter(d=>(state.cat==="전체"||d.cat===state.cat)
       &&(state.party==="전체"||d.party.includes(state.party))
       &&pt(d.won)
@@ -244,7 +254,9 @@ function render(){
     document.querySelectorAll(`#${row} .chip`).forEach(b=>b.setAttribute("aria-pressed", b.dataset.v===state[key]));
   document.querySelectorAll(".provider button").forEach(b=>b.setAttribute("aria-pressed", b.dataset.pv===state.provider));
   const list=filtered();
-  $("count").textContent = state.center ? `반경 3km 안 ${list.length}곳` : `${list.length}곳 · 위치를 정하면 반경 3km로 좁혀져요`;
+  const passed=DATA.filter(isMatjip).length;
+  $("count").textContent = (state.center ? `반경 3km 안 ${list.length}곳` : `${list.length}곳 · 위치를 정하면 반경 3km로 좁혀져요`)
+    + ` (등록된 ${DATA.length}곳 중 기준 통과 ${passed}곳)`;
   $("grid").innerHTML=list.length?list.map(card).join(""):
     `<div class="empty">조건에 맞는 가게가 없어요. ${state.center?"위치를 옮기거나 ":""}필터를 '전체'로 바꿔 보세요.</div>`;
   renderStatus();
@@ -451,6 +463,10 @@ $("myLoc").addEventListener("click",()=>{
 });
 $("clearLoc").addEventListener("click",clearCenter);
 
+$("criteria").innerHTML =
+  `<span>맛집 기준</span><span>네이버 ★ <b>${CRITERIA.naverMin.toFixed(1)}</b> 이상</span>`
+  + `<span>카카오 ★ <b>${CRITERIA.kakaoMin.toFixed(1)}</b> 이상</span>`
+  + `<span>리뷰 합계 <b>${CRITERIA.reviewMin.toLocaleString("ko-KR")}</b>개 이상</span>`;
 render();
 useProvider(state.provider);
 </script>
